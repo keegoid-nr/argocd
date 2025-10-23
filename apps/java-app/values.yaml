@@ -1,0 +1,87 @@
+# Default values for java-app chart.
+appName: "java-app"
+appVersion: "1.0.0"
+chartVersion: "1.0.0"
+replicaCount: 1
+revisionHistoryLimit: 3
+
+image:
+  # repository: "<AWS_ACCOUNT_ID>.dkr.ecr.<REGION>.amazonaws.com/<CLUSTER_NAME>-{{ .Values.appName }}"
+  # The line above shows how it might be constructed if not using the helper.
+  # With the helper, repository can be left blank to use aws settings below, or fully qualified.
+  repository: ""
+  pullPolicy: Always
+  tag: "" # Defaults to .Chart.AppVersion (which comes from appVersion in this values file)
+
+# AWS ECR configuration (used if image.repository is not set or is partial)
+aws:
+  accountId: "123456789012" # Example default for $AWS_ACCOUNT_ID
+  region: "us-west-2"       # Example default for $REGION
+clusterName: "my-cluster"   # Example default for $CLUSTER_NAME
+
+serviceAccount:
+  create: false
+  name: "java-app-sa"
+  annotations: {}
+
+container:
+  name: "java-app-container"
+  port: 8080
+  env:
+    _JAVA_OPTIONS: "-Djava.net.preferIPv4Stack=true"
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "10m"
+    limits:
+      memory: "512Mi"
+      cpu: "100m"
+  readinessProbe:
+    httpGet:
+      path: /ready
+    initialDelaySeconds: 10
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+    successThreshold: 1
+  livenessProbe:
+    httpGet:
+      path: /health
+    initialDelaySeconds: 300
+    periodSeconds: 60
+    timeoutSeconds: 5
+    failureThreshold: 3
+    successThreshold: 1
+
+service:
+  nameSuffix: "-service"
+  type: ClusterIP
+  port: 8080
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8080"
+    prometheus.io/path: "/metrics"
+
+hpa:
+  enabled: true # Default to true, can be overridden
+  nameSuffix: "-hpa"
+  minReplicas: 1
+  maxReplicas: 3
+  metrics:
+  - type: External
+    external:
+      metric:
+        name: "java_app_requests"
+      target:
+        type: Value
+        value: "5"
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 30
+      policies:
+      - type: Pods
+        value: 1
+        periodSeconds: 15
+      - type: Percent
+        value: 100
+        periodSeconds: 15

@@ -1,0 +1,45 @@
+{{- if .Values.hpa.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "java-app.appName" . }}{{ .Values.hpa.nameSuffix }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "java-app.labels" . | nindent 4 }}
+    app.kubernetes.io/name: {{ include "java-app.appName" . }}{{ .Values.hpa.nameSuffix }} # Specific hpa name label
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "java-app.appName" . }}
+  minReplicas: {{ .Values.hpa.minReplicas }}
+  maxReplicas: {{ .Values.hpa.maxReplicas }}
+  metrics:
+  {{- range .Values.hpa.metrics }}
+  - type: {{ .type }}
+    {{- if eq .type "External" }}
+    external:
+      metric:
+        name: {{ .external.metric.name }}
+        {{- with .external.metric.selector }}
+        selector: {{- tpl (toYaml .) $ | nindent 10 }}
+        {{- else }}
+        selector:
+          matchLabels:
+            # These are added to the NRQL query as WHERE conditions, so they must exist in New Relic as attributes for the metric
+            namespace: {{ $.Release.Namespace }}
+            cluster_name: {{ $.Values.clusterName }} # set removeClusterFilter: true in the metrics adapter since it uses clusterName by default
+            app_kubernetes_io_name: {{ include "java-app.appName" $ }}{{ $.Values.service.nameSuffix }}
+        {{- end }}
+      target:
+        type: {{ .external.target.type }}
+        value: {{ .external.target.value | quote }}
+    {{- else if .resource }}
+    resource: {{- toYaml .resource | nindent 6 }}
+    {{- end }}
+  {{- end }}
+  {{- with .Values.hpa.behavior }}
+  behavior:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end }}

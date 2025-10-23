@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "express-app.appName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "express-app.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  revisionHistoryLimit: {{ .Values.revisionHistoryLimit }}
+  selector:
+    matchLabels:
+      {{- include "express-app.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "express-app.selectorLabels" . | nindent 8 }}
+        {{- if .Values.podAnnotations }}
+      annotations:
+        {{- toYaml .Values.podAnnotations | nindent 8 }}
+        {{- end }}
+    spec:
+      containers:
+      - name: {{ .Values.container.name | default (include "express-app.appName" .) }}
+        image: {{ include "express-app.image" . }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        ports:
+        - name: http
+          containerPort: {{ .Values.container.port }}
+          protocol: TCP
+        resources:
+          {{- toYaml .Values.container.resources | nindent 10 }}
+        readinessProbe:
+          httpGet:
+            path: {{ .Values.container.readinessProbe.httpGet.path }}
+            port: http
+          initialDelaySeconds: {{ .Values.container.readinessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.container.readinessProbe.periodSeconds }}
+          timeoutSeconds: {{ .Values.container.readinessProbe.timeoutSeconds }}
+          failureThreshold: {{ .Values.container.readinessProbe.failureThreshold }}
+          successThreshold: {{ .Values.container.readinessProbe.successThreshold }}
+        livenessProbe:
+          httpGet:
+            path: {{ .Values.container.livenessProbe.httpGet.path }}
+            port: http
+          initialDelaySeconds: {{ .Values.container.livenessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.container.livenessProbe.periodSeconds }}
+          timeoutSeconds: {{ .Values.container.livenessProbe.timeoutSeconds }}
+          failureThreshold: {{ .Values.container.livenessProbe.failureThreshold }}
+          successThreshold: {{ .Values.container.livenessProbe.successThreshold }}

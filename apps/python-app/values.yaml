@@ -1,0 +1,52 @@
+# Default values for python-app chart.
+appName: "python-app"
+appVersion: "1.0.0"
+chartVersion: "1.0.0"
+replicaCount: 1
+revisionHistoryLimit: 3
+
+image:
+  repository: ""
+  pullPolicy: Always
+  tag: ""
+
+aws:
+  accountId: "123456789012"
+  region: "us-west-2"
+clusterName: "my-cluster"
+
+container:
+  name: "python-app-container"
+  port: 8080 # Python app specific port
+  resources: # Python app specific resources
+    requests:
+      memory: "64Mi"
+      cpu: "10m"
+    limits:
+      memory: "128Mi"
+      cpu: "100m"
+  readinessProbe:
+    httpGet:
+      path: /ready
+    initialDelaySeconds: 10
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+    successThreshold: 1
+  livenessProbe:
+    httpGet:
+      path: /health
+    initialDelaySeconds: 300
+    periodSeconds: 60
+    timeoutSeconds: 5
+    failureThreshold: 3
+    successThreshold: 1
+
+service:
+  nameSuffix: "-service"
+  type: ClusterIP # Python app specific service type
+  port: 8080 # Python app specific port
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8080" # Match container port
+    prometheus.io/path: "/metrics"

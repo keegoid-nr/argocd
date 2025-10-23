@@ -1,0 +1,7 @@
+appName: "java-app"
+chartVersion: "0.2.0"
+appVersion: "0.1.0"
+revisionHistoryLimit: 0
+aws:
+  region: "us-west-2"
+# Add other sections like 'image', 'container', 'customLabels' if they are being overridden

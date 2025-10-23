@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "java-app.appName" . }}{{ .Values.service.nameSuffix }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "java-app.labels" . | nindent 4 }}
+    app.kubernetes.io/name: {{ include "java-app.appName" . }}{{ .Values.service.nameSuffix }} # Specific service name label
+  {{- with .Values.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: http # Name of the port in deployment container spec
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "java-app.selectorLabels" . | nindent 4 }}
