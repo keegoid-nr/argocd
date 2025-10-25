@@ -1,0 +1,9 @@
+customAPIKeySecretName: "newrelic-secrets"
+customAPIKeySecretKey: "personalAPIKey"
+verboseLog: true
+config:
+  region: "US"
+  externalMetrics:
+    java_app_requests:
+      query: "FROM Metric SELECT sum(dynamodb_put_item_total) SINCE 5 MINUTES AGO"
+      removeClusterFilter: true

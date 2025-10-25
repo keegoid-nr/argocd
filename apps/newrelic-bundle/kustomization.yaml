@@ -71,18 +71,6 @@ helmCharts:
           operator: "Equal"
           value: "fargate"
           effect: "NoSchedule"
-      # https://github.com/newrelic/newrelic-k8s-metrics-adapter/tree/main/charts/newrelic-k8s-metrics-adapter
-      newrelic-k8s-metrics-adapter:
-        enabled: true
-        verboseLog: true
-        personalAPIKey: "DUMMY_VALUE"
-        config:
-          accountID: 1234567
-          region: "US"
-          externalMetrics:
-            java_app_requests:
-              query: "FROM Metric SELECT sum(dynamodb_put_item_total) SINCE 5 MINUTES AGO"
-              removeClusterFilter: true
       # https://github.com/newrelic/nri-kubernetes/tree/main/charts/newrelic-infrastructure
       newrelic-infrastructure:
         enabled: true
@@ -109,16 +97,7 @@ patches:
         value:
           argocd.argoj.io/sync-wave: "-5"
 
-  # 2. Patch ALL Deployments to Wave -4 (or any wave > -5)
-  - target:
-      kind: Deployment
-    patch: |
-      - op: add
-        path: /metadata/annotations
-        value:
-          argocd.argoj.io/sync-wave: "-4"
-
-  # 3. Patch the specific Webhook Service to Wave -5
+  # 2. Patch the specific Webhook Service to Wave -5
   - target:
       kind: Service
       name: nri-bundle-k8s-agents-operator-webhook-service
@@ -127,6 +106,15 @@ patches:
         path: /metadata/annotations
         value:
           argocd.argoj.io/sync-wave: "-5"
+
+  # 3. Patch ALL Deployments to Wave -4 (or any wave > -5)
+  - target:
+      kind: Deployment
+    patch: |
+      - op: add
+        path: /metadata/annotations
+        value:
+          argocd.argoj.io/sync-wave: "-4"
 
   # 4. Patch the CRD to Wave 1
   - target:
@@ -137,26 +125,3 @@ patches:
         path: /metadata/annotations
         value:
           argocd.argoj.io/sync-wave: "1"
-
-  - target:
-      group: "apps"
-      kind: Deployment
-      name: nri-bundle-newrelic-k8s-metrics-adapter
-      namespace: newrelic
-    patch: |
-      - op: add
-        path: /spec/template/spec/containers/0/env/-
-        value:
-          name: NEWRELIC_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: newrelic-secrets
-              key: personalAPIKey
-      - op: add
-        path: /spec/template/spec/containers/0/env/-
-        value:
-          name: NEWRELIC_ACCOUNT_ID
-          valueFrom:
-            secretKeyRef:
-              name: newrelic-secrets
-              key: newRelicAccountId
