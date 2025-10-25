@@ -60,7 +60,7 @@ spec:
         - name: CLUSTER_NAME
           value: {{ include "newrelic.common.cluster" . }}
         - name: NEWRELIC_API_KEY
-          {{- if .Values.personalAPIKey }}
+          {{- if and .Values.personalAPIKey (.Values.personalAPIKey | ne "") }}
           value: {{ .Values.personalAPIKey | quote }}
           {{- else if and .Values.customAPIKeySecretName .Values.customAPIKeySecretKey }}
           valueFrom:
