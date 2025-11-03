@@ -88,12 +88,9 @@ helmCharts:
         enabled: true
 
   # CHART 2: Instrumentation CRDs (local)
-  - name: newrelic-instrumentation-crds # Must match the 'name' in its Chart.yaml
-    # Path is relative from this kustomization.yaml
-    repo: ../newrelic-instrumentation-crds
+  - name: newrelic-instrumentation-crds # <--- This is the path
     releaseName: newrelic-instrumentation-crds
     namespace: newrelic
-    # Pass in the values, just like your old Argo App did
     valuesInline:
       awsAccountId: "368927449855"
 
