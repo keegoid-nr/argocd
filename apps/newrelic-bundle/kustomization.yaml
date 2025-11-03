@@ -88,8 +88,7 @@ helmCharts:
         enabled: true
 
   # CHART 2: Instrumentation CRDs (local)
-  - name: newrelic-instrumentation-crds
-    repo: file://newrelic-instrumentation-crds
+  - name: ./newrelic-instrumentation-crds
     releaseName: newrelic-instrumentation-crds
     namespace: newrelic
     valuesInline:
