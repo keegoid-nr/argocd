@@ -127,6 +127,7 @@ patches:
   # WAVE -3: The Operator Deployment
   - target:
       kind: Deployment
+      name: nri-bundle-k8s-agents-operator
     patch: |
       - op: add
         path: /metadata/annotations
