@@ -1,4 +1,0 @@
-# Default values for newrelic-instrumentation-crds chart.
-appName: "newrelic-instrumentation-crds"
-appVersion: "1.0.0"
-chartVersion: "0.1.0"

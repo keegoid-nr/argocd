@@ -1,0 +1,67 @@
+apiVersion: newrelic.com/v1alpha2
+kind: Instrumentation
+metadata:
+  name: newrelic-instrumentation-java
+  namespace: newrelic # Ensure this namespace matches where k8s-agents-operator is or expects CRs
+spec:
+  agent:
+    language: java
+    image: newrelic/newrelic-java-init:8.24.0
+    env:
+    - name: NEW_RELIC_CLOUD_AWS_ACCOUNT_ID
+      value: "368927449855"
+    - name: NEW_RELIC_LOG_LEVEL
+      value: "info"
+    - name: NEW_RELIC_LOG_FILE_NAME
+      value: "STDOUT"
+  podLabelSelector:
+    matchExpressions:
+      - key: "app.kubernetes.io/name"
+        operator: "In"
+        values: ["java-app","synthetics-job-manager","ping-runtime"]
+---
+apiVersion: newrelic.com/v1alpha2
+kind: Instrumentation
+metadata:
+  name: newrelic-instrumentation-nodejs
+  namespace: newrelic
+spec:
+  agent:
+    language: nodejs
+    image: newrelic/newrelic-node-init:latest
+    env:
+    - name: NEW_RELIC_CLOUD_AWS_ACCOUNT_ID
+      value: "368927449855"
+    - name: NEW_RELIC_LOG_ENABLED
+      value: "true"
+    - name: NEW_RELIC_LOG_LEVEL
+      value: "info"
+    - name: NEW_RELIC_LOG
+      value: "stdout"
+  podLabelSelector:
+    matchExpressions:
+      - key: "app.kubernetes.io/name"
+        operator: "In"
+        values: ["express-app"]
+---
+apiVersion: newrelic.com/v1alpha2
+kind: Instrumentation
+metadata:
+  name: newrelic-instrumentation-python
+  namespace: newrelic
+spec:
+  agent:
+    language: python
+    image: newrelic/newrelic-python-init:latest
+    env:
+    - name: NEW_RELIC_CLOUD_AWS_ACCOUNT_ID
+      value: "368927449855"
+    - name: NEW_RELIC_LOG_LEVEL
+      value: "info"
+    - name: NEW_RELIC_LOG
+      value: "stderr"
+  podLabelSelector:
+    matchExpressions:
+      - key: "app.kubernetes.io/name"
+        operator: "In"
+        values: ["python-app"]

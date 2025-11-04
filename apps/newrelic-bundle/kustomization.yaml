@@ -1,8 +1,10 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
+resources:
+  - instrumentation-crs.yaml
+
 helmCharts:
-  # CHART 1: nri-bundle (remote)
   - name: nri-bundle
     repo: https://newrelic.github.io/helm-charts
     version: 6.0.17
@@ -86,13 +88,6 @@ helmCharts:
       # https://github.com/newrelic/helm-charts/tree/master/charts/newrelic-logging
       newrelic-logging:
         enabled: true
-
-  # CHART 2: Instrumentation CRDs (local)
-  - name: ./newrelic-instrumentation-crds
-    releaseName: newrelic-instrumentation-crds
-    namespace: newrelic
-    valuesInline:
-      awsAccountId: "368927449855"
 
 patches:
   # WAVE -10: The CRD itself. This MUST exist first.
