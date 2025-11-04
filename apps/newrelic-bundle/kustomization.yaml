@@ -126,9 +126,6 @@ patches:
       name: nri-bundle-newrelic-infra-operator-admission-create
     patch: |
       - op: add
-        path: /spec/ttlSecondsAfterFinished
-        value: 600
-      - op: add
         path: /metadata/annotations
         value:
           argocd.argoj.io/sync-wave: "-4"
@@ -137,9 +134,6 @@ patches:
       kind: Job
       name: nri-bundle-nri-metadata-injection-admission-create
     patch: |
-      - op: add
-        path: /spec/ttlSecondsAfterFinished
-        value: 600
       - op: add
         path: /metadata/annotations
         value:
