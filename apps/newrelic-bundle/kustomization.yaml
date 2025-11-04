@@ -90,6 +90,13 @@ helmCharts:
         enabled: true
 
 patches:
+  # Wave -10: CRD (instrumentations.newrelic.com)
+  # Wave  -5: All ServiceAccounts (including the ones for the jobs)
+  # Wave  -4: The two Jobs (which now find their SAs)
+  # Wave  -3: The Service (...-webhook-service)
+  # Wave  -2: The Deployment (...-k8s-agents-operator)
+  # Wave   5: Instrumentation (CRs, which now find the running webhook)
+
   # WAVE -10: The CRD itself. This MUST exist first.
   - target:
       kind: CustomResourceDefinition
@@ -109,7 +116,36 @@ patches:
         value:
           argocd.argoj.io/sync-wave: "-5"
 
-  # WAVE -4: The Webhook Service
+  # WAVE -4: Batch Jobs
+  # This patch finds the two setup jobs, tells Kubernetes
+  # to delete them 600 seconds (10 minutes) after they complete,
+  # AND assigns them to Wave -4 so they run AFTER their
+  # ServiceAccounts (in Wave -5).
+  - target:
+      kind: Job
+      name: nri-bundle-newrelic-infra-operator-admission-create
+    patch: |
+      - op: add
+        path: /spec/ttlSecondsAfterFinished
+        value: 600
+      - op: add
+        path: /metadata/annotations
+        value:
+          argocd.argoj.io/sync-wave: "-4"
+
+  - target:
+      kind: Job
+      name: nri-bundle-nri-metadata-injection-admission-create
+    patch: |
+      - op: add
+        path: /spec/ttlSecondsAfterFinished
+        value: 600
+      - op: add
+        path: /metadata/annotations
+        value:
+          argocd.argoj.io/sync-wave: "-4"
+
+  # WAVE -3: The Webhook Service
   - target:
       kind: Service
       name: nri-bundle-k8s-agents-operator-webhook-service
@@ -117,9 +153,9 @@ patches:
       - op: add
         path: /metadata/annotations
         value:
-          argocd.argoj.io/sync-wave: "-4"
+          argocd.argoj.io/sync-wave: "-3"
 
-  # WAVE -3: The Operator Deployment
+  # WAVE -2: The Operator Deployment
   - target:
       kind: Deployment
       name: nri-bundle-k8s-agents-operator
@@ -127,7 +163,7 @@ patches:
       - op: add
         path: /metadata/annotations
         value:
-          argocd.argoj.io/sync-wave: "-3"
+          argocd.argoj.io/sync-wave: "-2"
 
   # --- CUSTOM RESOURCE WAVES (from newrelic-instrumentation-crds) ---
 
@@ -140,24 +176,3 @@ patches:
         path: /metadata/annotations
         value:
           argocd.argoj.io/sync-wave: "5"
-
-  # --- AUTO-CLEANUP FOR HELM HOOK JOBS ---
-  # This patch finds the two setup jobs and tells Kubernetes
-  # to delete them 600 seconds (10 minutes) after they complete.
-  # This prevents them from getting stuck by finalizers on deletion.
-
-  - target:
-      kind: Job
-      name: nri-bundle-newrelic-infra-operator-admission-create
-    patch: |
-      - op: add
-        path: /spec/ttlSecondsAfterFinished
-        value: 600
-
-  - target:
-      kind: Job
-      name: nri-bundle-nri-metadata-injection-admission-create
-    patch: |
-      - op: add
-        path: /spec/ttlSecondsAfterFinished
-        value: 600
