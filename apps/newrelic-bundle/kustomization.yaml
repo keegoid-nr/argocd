@@ -198,15 +198,40 @@ patches:
       kind: Job
       name: nri-bundle-newrelic-infra-operator-admission-create
     patch: |
+      # Add sync wave
       - op: add
         path: /metadata/annotations
         value:
           argocd.argoproj.io/sync-wave: "-4"
           argocd.argoproj.io/sync-options: "Replace=true"
+      # FIX: Add missing spec.selector for K8s 1.25+
+      - op: add
+        path: /spec/selector
+        value:
+          matchLabels:
+            app: newrelic-infra-operator-admission-create
 
   - target:
       kind: Job
       name: nri-bundle-nri-metadata-injection-admission-create
+    patch: |
+      # Add sync wave
+      - op: add
+        path: /metadata/annotations
+        value:
+          argocd.argoproj.io/sync-wave: "-4"
+          argocd.argoproj.io/sync-options: "Replace=true"
+      # FIX: Add missing spec.selector for K8s 1.25+
+      - op: add
+        path: /spec/selector
+        value:
+          matchLabels:
+            app: nri-metadata-injection-admission-create
+
+  # This is the RBAC for the JOBS (not the operators)
+  - target:
+      kind: "ServiceAccount|Role|ClusterRole|RoleBinding|ClusterRoleBinding"
+      name: "nri-bundle-.*-admission" # Regex for all ...-admission RBAC
     patch: |
       - op: add
         path: /metadata/annotations
