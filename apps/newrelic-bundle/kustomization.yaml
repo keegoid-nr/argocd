@@ -164,7 +164,7 @@ patches:
   # These must be created *before* the Wave -4 jobs can patch them
   - target:
       kind: MutatingWebhookConfiguration
-      name: nri-bundle-newrelic-infra-operator-admission
+      name: nri-bundle-newrelic-infra-operator
     patch: |
       - op: add
         path: /metadata/annotations
@@ -173,7 +173,7 @@ patches:
 
   - target:
       kind: MutatingWebhookConfiguration
-      name: nri-bundle-nri-metadata-injection-admission
+      name: nri-bundle-nri-metadata-injection
     patch: |
       - op: add
         path: /metadata/annotations
