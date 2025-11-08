@@ -140,7 +140,7 @@ helmCharts:
       newrelic-logging:
         enabled: true
 
-patches:
+# patches:
 # # Wave -10: CRD is created.
 # # Wave -5: ServiceAccounts, Operator Deployments, Operator Services, and the (empty) MutatingWebhookConfigurations are all created.
 # # Wave -4: The Jobs run. They find the webhooks from Wave -5, generate new certs, and patch the caBundle into them.
