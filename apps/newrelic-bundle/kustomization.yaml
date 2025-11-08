@@ -8,7 +8,7 @@ helmCharts:
   - name: nri-bundle
     repo: https://newrelic.github.io/helm-charts
     version: 6.0.21
-    releaseName: nri-bundle
+    releaseName: nri-bundle # This must match the 'nri-bundle-' prefix below
     namespace: newrelic
     valuesInline:
       # https://github.com/newrelic/helm-charts/blob/master/charts/nri-bundle
@@ -91,148 +91,120 @@ helmCharts:
         enabled: true
 
 patches:
-# Wave -10: CRD is created.
-# Wave -5: ServiceAccounts, Operator Deployments, Operator Services, and the (empty) MutatingWebhookConfigurations are all created.
-# Wave -4: The Jobs run. They find the webhooks from Wave -5, generate new certs, and patch the caBundle into them.
-# Wave -3/-2: Other k8s-agents-operator components are created.
-# Wave 5: Instrumentation CRs are created.
-
   # --- WAVE -10: CRDs. This MUST exist first. ---
   - target:
       kind: CustomResourceDefinition
       name: instrumentations.newrelic.com
-    patch: |
+    patch: |-
+      # Add sync wave annotation
       - op: add
         path: /metadata/annotations
         value:
-          argocd.argoj.io/sync-wave: "-10"
-      # This operation replaces the entire 'conversion' block
-      # It stops the K8s API from calling a webhook that isn't ready.
+          argocd.argoproj.io/sync-wave: "-10"
+      # Disable webhook conversion until the operator is ready
       - op: replace
         path: /spec/conversion
         value:
           strategy: None
 
-  # --- WAVE -5: OPERATOR DEPLOYMENTS & SERVICES ---
-  - target:
-      kind: ServiceAccount
-    patch: |
-      - op: add
-        path: /metadata/annotations
-        value:
-          argocd.argoj.io/sync-wave: "-5"
+  # --- WAVE -5: RBAC, OPERATOR DEPLOYMENTS & SERVICES, WEBHOOK CONFIGS ---
 
-  # Ensure the operators are created before their webhooks
+  # Patch all RBAC components to come up first
+  - target:
+      kind: "ServiceAccount|Role|ClusterRole|RoleBinding|ClusterRoleBinding"
+    patch: |
+      metadata:
+        annotations:
+          argocd.argoproj.io/sync-wave: "-5"
+
+  # Operator Deployments
   - target:
       kind: Deployment
       name: nri-bundle-newrelic-infra-operator
     patch: |
-      - op: add
-        path: /metadata/annotations
-        value:
-          argocd.argoj.io/sync-wave: "-5"
-
-  - target:
-      kind: Service
-      name: nri-bundle-newrelic-infra-operator-webhook-svc
-    patch: |
-      - op: add
-        path: /metadata/annotations
-        value:
-          argocd.argoj.io/sync-wave: "-5"
-
-  # Also add metadata-injection, just in case
+      metadata:
+        annotations:
+          argocd.argoproj.io/sync-wave: "-5"
   - target:
       kind: Deployment
       name: nri-bundle-nri-metadata-injection
     patch: |
-      - op: add
-        path: /metadata/annotations
-        value:
-          argocd.argoj.io/sync-wave: "-5"
+      metadata:
+        annotations:
+          argocd.argoproj.io/sync-wave: "-5"
 
+  # Operator Services (FIXED: Corrected names)
   - target:
       kind: Service
-      name: nri-bundle-nri-metadata-injection-webhook-svc
+      name: nri-bundle-newrelic-infra-operator
     patch: |
-      - op: add
-        path: /metadata/annotations
-        value:
-          argocd.argoj.io/sync-wave: "-5"
+      metadata:
+        annotations:
+          argocd.argoproj.io/sync-wave: "-5"
+  - target:
+      kind: Service
+      name: nri-bundle-nri-metadata-injection
+    patch: |
+      metadata:
+        annotations:
+          argocd.argoproj.io/sync-wave: "-5"
 
-  # WEBHOOK CONFIGURATIONS
-  # These must be created *before* the Wave -4 jobs can patch them
+  # Webhook Configurations
   - target:
       kind: MutatingWebhookConfiguration
       name: nri-bundle-newrelic-infra-operator
     patch: |
-      - op: add
-        path: /metadata/annotations
-        value:
-          argocd.argoj.io/sync-wave: "-5"
-
+      metadata:
+        annotations:
+          argocd.argoproj.io/sync-wave: "-5"
   - target:
       kind: MutatingWebhookConfiguration
       name: nri-bundle-nri-metadata-injection
     patch: |
-      - op: add
-        path: /metadata/annotations
-        value:
-          argocd.argoj.io/sync-wave: "-5"
+      metadata:
+        annotations:
+          argocd.argoproj.io/sync-wave: "-5"
 
   # --- WAVE -4: BATCH JOBS ---
   - target:
       kind: Job
       name: nri-bundle-newrelic-infra-operator-admission-create
     patch: |
-      - op: add
-        path: /metadata/annotations
-        value:
-          argocd.argoj.io/sync-wave: "-4"
-          argocd.argoj.io/sync-options: "Replace=true"
-
+      metadata:
+        annotations:
+          argocd.argoproj.io/sync-wave: "-4"
+          argocd.argoproj.io/sync-options: "Replace=true"
   - target:
       kind: Job
       name: nri-bundle-nri-metadata-injection-admission-create
     patch: |
-      - op: add
-        path: /metadata/annotations
-        value:
-          argocd.argoj.io/sync-wave: "-4"
-          argocd.argoj.io/sync-options: "Replace=true"
+      metadata:
+        annotations:
+          argocd.argoproj.io/sync-wave: "-4"
+          argocd.argoproj.io/sync-options: "Replace=true"
 
-  # --- WAVE -3: WEBHOOK SERVICE ---
+  # --- WAVE -3: K8S AGENTS OPERATOR WEBHOOK SERVICE ---
   - target:
       kind: Service
       name: nri-bundle-k8s-agents-operator-webhook-service
     patch: |
-      - op: add
-        path: /metadata/annotations
-        value:
-          argocd.argoj.io/sync-wave: "-3"
+      metadata:
+        annotations:
+          argocd.argoproj.io/sync-wave: "-3"
 
   # --- WAVE -2: K8S AGENTS OPERATOR DEPLOYMENT ---
   - target:
       kind: Deployment
       name: nri-bundle-k8s-agents-operator
     patch: |
-      - op: add
-        path: /metadata/annotations
-        value:
-          argocd.argoj.io/sync-wave: "-2"
+      metadata:
+        annotations:
+          argocd.argoproj.io/sync-wave: "-2"
 
-  # --- WAVE 5: CUSTOM RESOURCE WAVES (from instrumentation-crs) ---
-  # This targets all 'Instrumentation' kinds generated by the local chart
+  # --- WAVE 5: CUSTOM RESOURCE WAVES ---
   - target:
       kind: Instrumentation
     patch: |
-      - op: add
-        path: /metadata/annotations
-        value:
-          argocd.argoj.io/sync-wave: "5"
-
-# Here is the exact mechanism that will prevent TLS handshake errors after chart upgrades:
-# argocd.argoj.io/sync-wave: "-5": These patches ensure the MutatingWebhookConfiguration resources are created early in the sync.
-# argocd.argoj.io/sync-wave: "-4": The certificate-generation Jobs are told to run in the next wave, after the webhook they need to patch already exists.
-# argocd.argoj.io/sync-options: "Replace=true": This is the key for upgrades. It tells Argo CD to delete the old job and run the new one every time a sync happens. This forces the creation of a new certificate to match the new pod from the upgraded chart.
-# ignoreDifferences:: This tells Argo CD not to panic when it sees the caBundle (which is empty in the chart) get populated by the job. It stops Argo CD from "fixing" the caBundle by removing it.
+      metadata:
+        annotations:
+          argocd.argoproj.io/sync-wave: "5"
