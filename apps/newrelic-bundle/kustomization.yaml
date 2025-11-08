@@ -204,12 +204,17 @@ patches:
         value:
           argocd.argoproj.io/sync-wave: "-4"
           argocd.argoproj.io/sync-options: "Replace=true"
-      # FIX: Add missing spec.selector for K8s 1.25+
+      # FIX: Add selector for K8s 1.25+
       - op: add
         path: /spec/selector
         value:
           matchLabels:
-            app: newrelic-infra-operator-admission-create
+            job-name: nri-bundle-newrelic-infra-operator-admission-create
+      # FIX: Add matching label to pod template for K8s 1.25+
+      - op: add
+        path: /spec/template/metadata/labels
+        value:
+          job-name: nri-bundle-newrelic-infra-operator-admission-create
 
   - target:
       kind: Job
@@ -221,23 +226,17 @@ patches:
         value:
           argocd.argoproj.io/sync-wave: "-4"
           argocd.argoproj.io/sync-options: "Replace=true"
-      # FIX: Add missing spec.selector for K8s 1.25+
+      # FIX: Add selector for K8s 1.25+
       - op: add
         path: /spec/selector
         value:
           matchLabels:
-            app: nri-metadata-injection-admission-create
-
-  # This is the RBAC for the JOBS (not the operators)
-  - target:
-      kind: "ServiceAccount|Role|ClusterRole|RoleBinding|ClusterRoleBinding"
-      name: "nri-bundle-.*-admission" # Regex for all ...-admission RBAC
-    patch: |
+            job-name: nri-bundle-nri-metadata-injection-admission-create
+      # FIX: Add matching label to pod template for K8s 1.25+
       - op: add
-        path: /metadata/annotations
+        path: /spec/template/metadata/labels
         value:
-          argocd.argoproj.io/sync-wave: "-4"
-          argocd.argoproj.io/sync-options: "Replace=true"
+          job-name: nri-bundle-nri-metadata-injection-admission-create
 
   # This is the RBAC for the JOBS (not the operators)
   - target:
@@ -287,7 +286,7 @@ patches:
         path: /metadata/annotations
         value:
           argocd.argoproj.io/sync-wave: "-3"
-  
+
   # --- WAVE -2: K8S AGENTS OPERATOR (Deployment & Service) ---
   - target:
       kind: ServiceAccount
@@ -297,7 +296,7 @@ patches:
         path: /metadata/annotations
         value:
           argocd.argoproj.io/sync-wave: "-2"
-          
+
   - target:
       kind: Service
       name: nri-bundle-k8s-agents-operator-webhook-service
