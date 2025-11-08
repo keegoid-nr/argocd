@@ -141,187 +141,187 @@ helmCharts:
         enabled: true
 
 patches:
-# Wave -10: CRD is created.
-# Wave -5: ServiceAccounts, Operator Deployments, Operator Services, and the (empty) MutatingWebhookConfigurations are all created.
-# Wave -4: The Jobs run. They find the webhooks from Wave -5, generate new certs, and patch the caBundle into them.
-# Wave -3/-2: Other k8s-agents-operator components are created.
-# Wave 5: Instrumentation CRs are created.
+# # Wave -10: CRD is created.
+# # Wave -5: ServiceAccounts, Operator Deployments, Operator Services, and the (empty) MutatingWebhookConfigurations are all created.
+# # Wave -4: The Jobs run. They find the webhooks from Wave -5, generate new certs, and patch the caBundle into them.
+# # Wave -3/-2: Other k8s-agents-operator components are created.
+# # Wave 5: Instrumentation CRs are created.
 
-  # --- WAVE -10: CRDs. This MUST exist first. ---
-  - target:
-      kind: CustomResourceDefinition
-      name: instrumentations.newrelic.com
-    patch: |
-      - op: add
-        path: /metadata/annotations
-        value:
-          argocd.argoproj.io/sync-wave: "-10"
-      - op: replace
-        path: /spec/conversion
-        value:
-          strategy: None
+#   # --- WAVE -10: CRDs. This MUST exist first. ---
+#   - target:
+#       kind: CustomResourceDefinition
+#       name: instrumentations.newrelic.com
+#     patch: |
+#       - op: add
+#         path: /metadata/annotations
+#         value:
+#           argocd.argoproj.io/sync-wave: "-10"
+#       - op: replace
+#         path: /spec/conversion
+#         value:
+#           strategy: None
 
-  # --- WAVE -5: OPERATOR RBAC & EMPTY WEBHOOK CONFIGS ---
-  # These patches target the main operator RBAC.
-  # We make them explicit (no regex) to ensure they are targeted correctly.
-  - target:
-      kind: "ClusterRole|ClusterRoleBinding|ServiceAccount"
-      name: "nri-bundle-newrelic-infra-operator"
-    patch: |
-      - op: add
-        path: /metadata/annotations
-        value:
-          argocd.argoproj.io/sync-wave: "-5"
-          argocd.argoproj.io/sync-options: "Replace=true"
-  - target:
-      kind: "ClusterRole|ClusterRoleBinding|ServiceAccount"
-      name: "nri-bundle-nri-metadata-injection"
-    patch: |
-      - op: add
-        path: /metadata/annotations
-        value:
-          argocd.argoproj.io/sync-wave: "-5"
-          argocd.argoproj.io/sync-options: "Replace=true"
+#   # --- WAVE -5: OPERATOR RBAC & EMPTY WEBHOOK CONFIGS ---
+#   # These patches target the main operator RBAC.
+#   # We make them explicit (no regex) to ensure they are targeted correctly.
+#   - target:
+#       kind: "ClusterRole|ClusterRoleBinding|ServiceAccount"
+#       name: "nri-bundle-newrelic-infra-operator"
+#     patch: |
+#       - op: add
+#         path: /metadata/annotations
+#         value:
+#           argocd.argoproj.io/sync-wave: "-5"
+#           argocd.argoproj.io/sync-options: "Replace=true"
+#   - target:
+#       kind: "ClusterRole|ClusterRoleBinding|ServiceAccount"
+#       name: "nri-bundle-nri-metadata-injection"
+#     patch: |
+#       - op: add
+#         path: /metadata/annotations
+#         value:
+#           argocd.argoproj.io/sync-wave: "-5"
+#           argocd.argoproj.io/sync-options: "Replace=true"
 
-  # These must be created *before* the Wave -4 jobs can patch them
-  - target:
-      kind: MutatingWebhookConfiguration
-      name: nri-bundle-newrelic-infra-operator
-    patch: |
-      - op: add
-        path: /metadata/annotations
-        value:
-          argocd.argoproj.io/sync-wave: "-5"
+#   # These must be created *before* the Wave -4 jobs can patch them
+#   - target:
+#       kind: MutatingWebhookConfiguration
+#       name: nri-bundle-newrelic-infra-operator
+#     patch: |
+#       - op: add
+#         path: /metadata/annotations
+#         value:
+#           argocd.argoproj.io/sync-wave: "-5"
 
-  - target:
-      kind: MutatingWebhookConfiguration
-      name: nri-bundle-nri-metadata-injection
-    patch: |
-      - op: add
-        path: /metadata/annotations
-        value:
-          argocd.argoproj.io/sync-wave: "-5"
+#   - target:
+#       kind: MutatingWebhookConfiguration
+#       name: nri-bundle-nri-metadata-injection
+#     patch: |
+#       - op: add
+#         path: /metadata/annotations
+#         value:
+#           argocd.argoproj.io/sync-wave: "-5"
 
-  # --- WAVE -4: BATCH JOBS & THEIR RBAC ---
-  # Run the jobs to create the secrets
-  - target:
-      kind: Job
-      name: nri-bundle-newrelic-infra-operator-admission-create
-    patch: |
-      # Add sync wave
-      - op: add
-        path: /metadata/annotations
-        value:
-          argocd.argoproj.io/sync-wave: "-4"
-          argocd.argoproj.io/sync-options: "Replace=true"
-      # FIX: Add selector for K8s 1.25+
-      - op: add
-        path: /spec/selector
-        value:
-          matchLabels:
-            job-name: nri-bundle-newrelic-infra-operator-admission-create
-      # FIX: Add matching label to pod template's *existing* labels
-      - op: add
-        path: /spec/template/metadata/labels/job-name
-        value: nri-bundle-newrelic-infra-operator-admission-create
+#   # --- WAVE -4: BATCH JOBS & THEIR RBAC ---
+#   # Run the jobs to create the secrets
+#   - target:
+#       kind: Job
+#       name: nri-bundle-newrelic-infra-operator-admission-create
+#     patch: |
+#       # Add sync wave
+#       - op: add
+#         path: /metadata/annotations
+#         value:
+#           argocd.argoproj.io/sync-wave: "-4"
+#           argocd.argoproj.io/sync-options: "Replace=true"
+#       # FIX: Add selector for K8s 1.25+
+#       - op: add
+#         path: /spec/selector
+#         value:
+#           matchLabels:
+#             job-name: nri-bundle-newrelic-infra-operator-admission-create
+#       # FIX: Add matching label to pod template's *existing* labels
+#       - op: add
+#         path: /spec/template/metadata/labels/job-name
+#         value: nri-bundle-newrelic-infra-operator-admission-create
 
-  - target:
-      kind: Job
-      name: nri-bundle-nri-metadata-injection-admission-create
-    patch: |
-      # Add sync wave
-      - op: add
-        path: /metadata/annotations
-        value:
-          argocd.argopj.io/sync-wave: "-4"
-          argocd.argoproj.io/sync-options: "Replace=true"
-      # FIX: Add selector for K8s 1.25+
-      - op: add
-        path: /spec/selector
-        value:
-          matchLabels:
-            job-name: nri-bundle-nri-metadata-injection-admission-create
-      # FIX: Add matching label to pod template's *existing* labels
-      - op: add
-        path: /spec/template/metadata/labels/job-name
-        value: nri-bundle-nri-metadata-injection-admission-create
+#   - target:
+#       kind: Job
+#       name: nri-bundle-nri-metadata-injection-admission-create
+#     patch: |
+#       # Add sync wave
+#       - op: add
+#         path: /metadata/annotations
+#         value:
+#           argocd.argopj.io/sync-wave: "-4"
+#           argocd.argoproj.io/sync-options: "Replace=true"
+#       # FIX: Add selector for K8s 1.25+
+#       - op: add
+#         path: /spec/selector
+#         value:
+#           matchLabels:
+#             job-name: nri-bundle-nri-metadata-injection-admission-create
+#       # FIX: Add matching label to pod template's *existing* labels
+#       - op: add
+#         path: /spec/template/metadata/labels/job-name
+#         value: nri-bundle-nri-metadata-injection-admission-create
 
-  # This is the RBAC for the JOBS (not the operators)
-  - target:
-      kind: "ServiceAccount|Role|ClusterRole|RoleBinding|ClusterRoleBinding"
-      name: "nri-bundle-.*-admission" # Regex for all ...-admission RBAC
-    patch: |
-      - op: add
-        path: /metadata/annotations
-        value:
-          argocd.argoproj.io/sync-wave: "-4"
-          argocd.argoproj.io/sync-options: "Replace=true"
+#   # This is the RBAC for the JOBS (not the operators)
+#   - target:
+#       kind: "ServiceAccount|Role|ClusterRole|RoleBinding|ClusterRoleBinding"
+#       name: "nri-bundle-.*-admission" # Regex for all ...-admission RBAC
+#     patch: |
+#       - op: add
+#         path: /metadata/annotations
+#         value:
+#           argocd.argoproj.io/sync-wave: "-4"
+#           argocd.argoproj.io/sync-options: "Replace=true"
 
-  # --- WAVE -3: OPERATOR DEPLOYMENTS & SERVICES ---
-  # Now that secrets exist, start the operators that mount them.
-  - target:
-      kind: Deployment
-      name: nri-bundle-newrelic-infra-operator
-    patch: |
-      - op: add
-        path: /metadata/annotations
-        value:
-          argocd.argoproj.io/sync-wave: "-3"
+#   # --- WAVE -3: OPERATOR DEPLOYMENTS & SERVICES ---
+#   # Now that secrets exist, start the operators that mount them.
+#   - target:
+#       kind: Deployment
+#       name: nri-bundle-newrelic-infra-operator
+#     patch: |
+#       - op: add
+#         path: /metadata/annotations
+#         value:
+#           argocd.argoproj.io/sync-wave: "-3"
 
-  - target:
-      kind: Service
-      name: nri-bundle-newrelic-infra-operator # Corrected name
-    patch: |
-      - op: add
-        path: /metadata/annotations
-        value:
-          argocd.argoproj.io/sync-wave: "-3"
+#   - target:
+#       kind: Service
+#       name: nri-bundle-newrelic-infra-operator # Corrected name
+#     patch: |
+#       - op: add
+#         path: /metadata/annotations
+#         value:
+#           argocd.argoproj.io/sync-wave: "-3"
 
-  - target:
-      kind: Deployment
-      name: nri-bundle-nri-metadata-injection
-    patch: |
-      - op: add
-        path: /metadata/annotations
-        value:
-          argocd.argoproj.io/sync-wave: "-3"
+#   - target:
+#       kind: Deployment
+#       name: nri-bundle-nri-metadata-injection
+#     patch: |
+#       - op: add
+#         path: /metadata/annotations
+#         value:
+#           argocd.argoproj.io/sync-wave: "-3"
 
-  - target:
-      kind: Service
-      name: nri-bundle-nri-metadata-injection # Corrected name
-    patch: |
-      - op: add
-        path: /metadata/annotations
-        value:
-          argocd.argoproj.io/sync-wave: "-3"
+#   - target:
+#       kind: Service
+#       name: nri-bundle-nri-metadata-injection # Corrected name
+#     patch: |
+#       - op: add
+#         path: /metadata/annotations
+#         value:
+#           argocd.argoproj.io/sync-wave: "-3"
 
-  # --- WAVE -2: K8S AGENTS OPERATOR (Deployment & Service) ---
-  - target:
-      kind: ServiceAccount
-      name: nri-bundle-k8s-agents-operator
-    patch: |
-      - op: add
-        path: /metadata/annotations
-        value:
-          argocd.argoproj.io/sync-wave: "-2"
+#   # --- WAVE -2: K8S AGENTS OPERATOR (Deployment & Service) ---
+#   - target:
+#       kind: ServiceAccount
+#       name: nri-bundle-k8s-agents-operator
+#     patch: |
+#       - op: add
+#         path: /metadata/annotations
+#         value:
+#           argocd.argoproj.io/sync-wave: "-2"
 
-  - target:
-      kind: Service
-      name: nri-bundle-k8s-agents-operator-webhook-service
-    patch: |
-      - op: add
-        path: /metadata/annotations
-        value:
-          argocd.argoproj.io/sync-wave: "-2"
+#   - target:
+#       kind: Service
+#       name: nri-bundle-k8s-agents-operator-webhook-service
+#     patch: |
+#       - op: add
+#         path: /metadata/annotations
+#         value:
+#           argocd.argoproj.io/sync-wave: "-2"
 
-  - target:
-      kind: Deployment
-      name: nri-bundle-k8s-agents-operator
-    patch: |
-      - op: add
-        path: /metadata/annotations
-        value:
-          argocd.argoproj.io/sync-wave: "-2"
+#   - target:
+#       kind: Deployment
+#       name: nri-bundle-k8s-agents-operator
+#     patch: |
+#       - op: add
+#         path: /metadata/annotations
+#         value:
+#           argocd.argoproj.io/sync-wave: "-2"
 
   # --- WAVE 5: CUSTOM RESOURCE WAVES (from instrumentation-crs) ---
   - target:
