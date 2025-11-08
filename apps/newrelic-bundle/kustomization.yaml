@@ -323,11 +323,11 @@ patches:
 #         value:
 #           argocd.argoproj.io/sync-wave: "-2"
 
-  # --- WAVE 5: CUSTOM RESOURCE WAVES (from instrumentation-crs) ---
-  - target:
-      kind: Instrumentation
-    patch: |
-      - op: add
-        path: /metadata/annotations
-        value:
-          argocd.argoproj.io/sync-wave: "5"
+  # # --- WAVE 5: CUSTOM RESOURCE WAVES (from instrumentation-crs) ---
+  # - target:
+  #     kind: Instrumentation
+  #   patch: |
+  #     - op: add
+  #       path: /metadata/annotations
+  #       value:
+  #         argocd.argoproj.io/sync-wave: "5"
