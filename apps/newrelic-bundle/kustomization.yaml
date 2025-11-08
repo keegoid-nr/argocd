@@ -236,16 +236,16 @@ patches:
         path: /spec/template/metadata/labels/job-name
         value: nri-bundle-nri-metadata-injection-admission-create
 
-  # This is the RBAC for the JOBS (not the operators)
-  - target:
-      kind: "ServiceAccount|Role|ClusterRole|RoleBinding|ClusterRoleBinding"
-      name: "nri-bundle-.*-admission" # Regex for all ...-admission RBAC
-    patch: |
-      - op: add
-        path: /metadata/annotations
-        value:
-          argocd.argoproj.io/sync-wave: "-4"
-          argocd.argoproj.io/sync-options: "Replace=true"
+  # # This is the RBAC for the JOBS (not the operators)
+  # - target:
+  #     kind: "ServiceAccount|Role|ClusterRole|RoleBinding|ClusterRoleBinding"
+  #     name: "nri-bundle-.*-admission" # Regex for all ...-admission RBAC
+  #   patch: |
+  #     - op: add
+  #       path: /metadata/annotations
+  #       value:
+  #         argocd.argoproj.io/sync-wave: "-4"
+  #         argocd.argoproj.io/sync-options: "Replace=true"
 
   # --- WAVE -3: OPERATOR DEPLOYMENTS & SERVICES ---
   # Now that secrets exist, start the operators that mount them.
