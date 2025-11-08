@@ -205,15 +205,12 @@ patches:
           argocd.argoproj.io/sync-wave: "-4"
           argocd.argoproj.io/sync-options: "Replace=true"
       # FIX: Add selector for K8s 1.25+
+      # This selector matches the 'app' label already in the pod template
       - op: add
         path: /spec/selector
         value:
           matchLabels:
-            job-name: nri-bundle-newrelic-infra-operator-admission-create
-      # FIX: Add matching label to pod template's *existing* labels
-      - op: add
-        path: /spec/template/metadata/labels/job-name
-        value: nri-bundle-newrelic-infra-operator-admission-create
+            app: newrelic-infra-operator-admission-create
 
   - target:
       kind: Job
@@ -226,15 +223,12 @@ patches:
           argocd.argoproj.io/sync-wave: "-4"
           argocd.argoproj.io/sync-options: "Replace=true"
       # FIX: Add selector for K8s 1.25+
+      # This selector matches the 'app' label already in the pod template
       - op: add
         path: /spec/selector
         value:
           matchLabels:
-            job-name: nri-bundle-nri-metadata-injection-admission-create
-      # FIX: Add matching label to pod template's *existing* labels
-      - op: add
-        path: /spec/template/metadata/labels/job-name
-        value: nri-bundle-nri-metadata-injection-admission-create
+            app: nri-metadata-injection-admission-create
 
   # This is the RBAC for the JOBS (not the operators)
   - target:
