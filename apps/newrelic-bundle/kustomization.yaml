@@ -136,6 +136,7 @@ patches:
         path: /metadata/annotations
         value:
           argocd.argoj.io/sync-wave: "-4"
+          argocd.argoj.io/sync-options: "Replace=true"
 
   - target:
       kind: Job
@@ -145,6 +146,7 @@ patches:
         path: /metadata/annotations
         value:
           argocd.argoj.io/sync-wave: "-4"
+          argocd.argoj.io/sync-options: "Replace=true"
 
   # WAVE -3: The Webhook Service
   - target:
