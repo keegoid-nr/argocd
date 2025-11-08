@@ -181,10 +181,6 @@ patches:
           argocd.argoj.io/sync-wave: "-5"
 
   # --- WAVE -4: BATCH JOBS ---
-  # This patch finds the two setup jobs, tells Kubernetes
-  # to delete them 600 seconds (10 minutes) after they complete,
-  # AND assigns them to Wave -4 so they run AFTER their
-  # ServiceAccounts (in Wave -5).
   - target:
       kind: Job
       name: nri-bundle-newrelic-infra-operator-admission-create
