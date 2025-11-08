@@ -251,6 +251,22 @@ patches:
           argocd.argoproj.io/sync-wave: "-4"
           argocd.argoproj.io/sync-options: "Replace=true"
 
+  # --- WAVE -4: RBAC FOR BATCH JOBS ---
+  # These patches pull the job-specific RBAC into Wave -4 to be created
+  # at the same time as the jobs. The 'Replace=true' is critical
+  # because these are Helm hook resources, just like the jobs.
+  - target:
+      # Target all RBAC kinds for the admission hooks
+      kind: "ServiceAccount|Role|ClusterRole|RoleBinding|ClusterRoleBinding"
+      # Use a regex to match both '...-infra-operator-admission' and '...-nri-metadata-injection-admission'
+      name: "nri-bundle-.*-admission"
+    patch: |
+      - op: add
+        path: /metadata/annotations
+        value:
+          argocd.argoproj.io/sync-wave: "-4"
+          argocd.argoproj.io/sync-options: "Replace=true"
+
   # --- WAVE -3: WEBHOOK SERVICE ---
   - target:
       kind: Service
