@@ -7,7 +7,7 @@ resources:
 helmCharts:
   - name: nri-bundle
     repo: https://newrelic.github.io/helm-charts
-    version: 6.0.17
+    version: 6.0.21
     releaseName: nri-bundle
     namespace: newrelic
     valuesInline:
@@ -107,6 +107,12 @@ patches:
         path: /metadata/annotations
         value:
           argocd.argoj.io/sync-wave: "-10"
+      # This operation replaces the entire 'conversion' block
+      # It stops the K8s API from calling a webhook that isn't ready.
+      - op: replace
+        path: /spec/conversion
+        value:
+          strategy: None
 
   # WAVE -5: ServiceAccounts & Permissions
   - target:
