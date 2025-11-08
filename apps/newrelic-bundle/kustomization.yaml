@@ -210,11 +210,10 @@ patches:
         value:
           matchLabels:
             job-name: nri-bundle-newrelic-infra-operator-admission-create
-      # FIX: Add matching label to pod template for K8s 1.25+
+      # FIX: Add matching label to pod template's *existing* labels
       - op: add
-        path: /spec/template/metadata/labels
-        value:
-          job-name: nri-bundle-newrelic-infra-operator-admission-create
+        path: /spec/template/metadata/labels/job-name
+        value: nri-bundle-newrelic-infra-operator-admission-create
 
   - target:
       kind: Job
@@ -232,11 +231,10 @@ patches:
         value:
           matchLabels:
             job-name: nri-bundle-nri-metadata-injection-admission-create
-      # FIX: Add matching label to pod template for K8s 1.25+
+      # FIX: Add matching label to pod template's *existing* labels
       - op: add
-        path: /spec/template/metadata/labels
-        value:
-          job-name: nri-bundle-nri-metadata-injection-admission-create
+        path: /spec/template/metadata/labels/job-name
+        value: nri-bundle-nri-metadata-injection-admission-create
 
   # This is the RBAC for the JOBS (not the operators)
   - target:
