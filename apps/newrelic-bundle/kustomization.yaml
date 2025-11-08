@@ -126,17 +126,11 @@ patches:
       metadata:
         annotations:
           argocd.argoproj.io/sync-wave: "-5"
-  # Also include its RBAC in this wave
+  # Also include its RBAC in this wave.
+  # This regex targets the SA, ClusterRole, and ClusterRoleBinding.
   - target:
       kind: "ServiceAccount|ClusterRole|ClusterRoleBinding"
-      name: "nri-bundle-k8s-agents-operator-manager-role" # Targets the main operator RBAC
-    patch: |
-      metadata:
-        annotations:
-          argocd.argoproj.io/sync-wave: "-5"
-  - target:
-      kind: ServiceAccount
-      name: nri-bundle-k8s-agents-operator
+      name: "nri-bundle-k8s-agents-operator.*" # Targets all operator RBAC
     patch: |
       metadata:
         annotations:
