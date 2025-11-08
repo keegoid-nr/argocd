@@ -1,6 +1,46 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
+
+# --- Argo CD Sync Wave Strategy ---
+#
+# The patches below solve a "chicken-and-egg" timing problem with
+# the 'k8s-agents-operator' conversion webhook.
+#
+# The Problem:
+# Without waves, Argo CD tries to apply all resources at once.
+# The 'Instrumentation' custom resources (CRs) are applied, but the
+# Kubernetes API server *immediately* tries to call the conversion
+# webhook for them. However, the 'k8s-agents-operator' pod that
+# serves that webhook isn't running or ready yet.
+# This results in a "tls: x509: certificate signed by unknown authority"
+# error, causing the sync to fail repeatedly until the operator pod
+# finally starts.
+#
+# The Solution:
+# We use sync waves to enforce a specific order of operations:
+#
+# 1.  **Wave -10 (CRD):**
+#     - **What:** The `instrumentations.newrelic.com` CustomResourceDefinition.
+#     - **Why:** The cluster must know what an 'Instrumentation' resource is
+#       before we can apply the operator or the CRs.
+#     - **Note:** We also patch `spec/conversion` to `strategy: None`. This is
+#       critical to prevent the API server from calling the webhook when
+#       the CRD *itself* is applied. (The Argo CD Application's
+#       'ignoreDifferences' for this path is also required).
+#
+# 2.  **Wave -5 (Operator):**
+#     - **What:** The `k8s-agents-operator` Deployment, its Service, and its RBAC.
+#     - **Why:** This is the webhook server. This wave ensures the operator
+#       is fully deployed and its pod is running *before* any
+#       resources that need to call its webhook are applied.
+#
+# 3.  **Wave 5 (CRs):**
+#     - **What:** The `Instrumentation` custom resources from `instrumentation-crs.yaml`.
+#     - **Why:** By applying these last, we guarantee the operator in Wave -5
+#       is healthy and ready to serve the webhook requests, preventing
+#       the x509 error and ensuring a clean, immediate sync.
+
 resources:
   - instrumentation-crs.yaml
 
