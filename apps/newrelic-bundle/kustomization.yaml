@@ -89,3 +89,65 @@ helmCharts:
       # https://github.com/newrelic/helm-charts/tree/master/charts/newrelic-logging
       newrelic-logging:
         enabled: true
+
+patches:
+  # --- WAVE -10: CRD ---
+  # Apply the CRD first.
+  # We also patch 'spec/conversion' to 'None' to prevent the API server
+  # from calling the webhook (which isn't ready) when applying the CRD itself.
+  # Your Argo CD 'ignoreDifferences' for '/spec/conversion' is still required.
+  - target:
+      kind: CustomResourceDefinition
+      name: instrumentations.newrelic.com
+    patch: |
+      - op: add
+        path: /metadata/annotations
+        value:
+          argocd.argoproj.io/sync-wave: "-10"
+      - op: replace
+        path: /spec/conversion
+        value:
+          strategy: None
+
+  # --- WAVE -5: K8S AGENTS OPERATOR ---
+  # Deploy the operator that serves the conversion webhook.
+  # We must ensure this is healthy *before* applying the Instrumentation CRs.
+  - target:
+      kind: Deployment
+      name: nri-bundle-k8s-agents-operator
+    patch: |
+      metadata:
+        annotations:
+          argocd.argoproj.io/sync-wave: "-5"
+  - target:
+      kind: Service
+      name: nri-bundle-k8s-agents-operator-webhook-service
+    patch: |
+      metadata:
+        annotations:
+          argocd.argoproj.io/sync-wave: "-5"
+  # Also include its RBAC in this wave
+  - target:
+      kind: "ServiceAccount|ClusterRole|ClusterRoleBinding"
+      name: "nri-bundle-k8s-agents-operator-manager-role" # Targets the main operator RBAC
+    patch: |
+      metadata:
+        annotations:
+          argocd.argoproj.io/sync-wave: "-5"
+  - target:
+      kind: ServiceAccount
+      name: nri-bundle-k8s-agents-operator
+    patch: |
+      metadata:
+        annotations:
+          argocd.argoproj.io/sync-wave: "-5"
+
+  # --- WAVE 5: INSTRUMENTATION CRs ---
+  # Apply the CRs *after* the operator is healthy.
+  # This prevents the x509 error because the webhook is now ready to serve.
+  - target:
+      kind: Instrumentation
+    patch: |
+      metadata:
+        annotations:
+          argocd.argoproj.io/sync-wave: "5"
