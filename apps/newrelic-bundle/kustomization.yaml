@@ -230,3 +230,9 @@ patches:
         path: /metadata/annotations
         value:
           argocd.argoj.io/sync-wave: "5"
+
+# Here is the exact mechanism that will prevent TLS handshake errors after chart upgrades:
+# argocd.argoj.io/sync-wave: "-5": These patches ensure the MutatingWebhookConfiguration resources are created early in the sync.
+# argocd.argoj.io/sync-wave: "-4": The certificate-generation Jobs are told to run in the next wave, after the webhook they need to patch already exists.
+# argocd.argoj.io/sync-options: "Replace=true": This is the key for upgrades. It tells Argo CD to delete the old job and run the new one every time a sync happens. This forces the creation of a new certificate to match the new pod from the upgraded chart.
+# ignoreDifferences:: This tells Argo CD not to panic when it sees the caBundle (which is empty in the chart) get populated by the job. It stops Argo CD from "fixing" the caBundle by removing it.
