@@ -162,10 +162,20 @@ patches:
           strategy: None
 
   # --- WAVE -5: OPERATOR RBAC & EMPTY WEBHOOK CONFIGS ---
+  # These patches target the main operator RBAC.
+  # We make them explicit (no regex) to ensure they are targeted correctly.
   - target:
-      # This patch is for the OPERATOR RBAC (not the job RBAC)
-      kind: "ServiceAccount|Role|ClusterRole|RoleBinding|ClusterRoleBinding"
-      name: "nri-bundle-(newrelic-infra-operator|nri-metadata-injection)$" # Regex for the main operator SA/RBAC
+      kind: "ClusterRole|ClusterRoleBinding|ServiceAccount"
+      name: "nri-bundle-newrelic-infra-operator"
+    patch: |
+      - op: add
+        path: /metadata/annotations
+        value:
+          argocd.argoproj.io/sync-wave: "-5"
+          argocd.argoproj.io/sync-options: "Replace=true"
+  - target:
+      kind: "ClusterRole|ClusterRoleBinding|ServiceAccount"
+      name: "nri-bundle-nri-metadata-injection"
     patch: |
       - op: add
         path: /metadata/annotations
@@ -173,8 +183,8 @@ patches:
           argocd.argoproj.io/sync-wave: "-5"
           argocd.argoproj.io/sync-options: "Replace=true"
 
+  # These must be created *before* the Wave -4 jobs can patch them
   - target:
-      # These must be created *before* the Wave -4 jobs can patch them
       kind: MutatingWebhookConfiguration
       name: nri-bundle-newrelic-infra-operator
     patch: |
@@ -236,16 +246,16 @@ patches:
         path: /spec/template/metadata/labels/job-name
         value: nri-bundle-nri-metadata-injection-admission-create
 
-  # # This is the RBAC for the JOBS (not the operators)
-  # - target:
-  #     kind: "ServiceAccount|Role|ClusterRole|RoleBinding|ClusterRoleBinding"
-  #     name: "nri-bundle-.*-admission" # Regex for all ...-admission RBAC
-  #   patch: |
-  #     - op: add
-  #       path: /metadata/annotations
-  #       value:
-  #         argocd.argoproj.io/sync-wave: "-4"
-  #         argocd.argoproj.io/sync-options: "Replace=true"
+  # This is the RBAC for the JOBS (not the operators)
+  - target:
+      kind: "ServiceAccount|Role|ClusterRole|RoleBinding|ClusterRoleBinding"
+      name: "nri-bundle-.*-admission" # Regex for all ...-admission RBAC
+    patch: |
+      - op: add
+        path: /metadata/annotations
+        value:
+          argocd.argoproj.io/sync-wave: "-4"
+          argocd.argoproj.io/sync-options: "Replace=true"
 
   # --- WAVE -3: OPERATOR DEPLOYMENTS & SERVICES ---
   # Now that secrets exist, start the operators that mount them.
