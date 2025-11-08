@@ -116,15 +116,17 @@ patches:
       kind: Deployment
       name: nri-bundle-k8s-agents-operator
     patch: |
-      metadata:
-        annotations:
+      - op: add
+        path: /metadata/annotations
+        value:
           argocd.argoproj.io/sync-wave: "-5"
   - target:
       kind: Service
       name: nri-bundle-k8s-agents-operator-webhook-service
     patch: |
-      metadata:
-        annotations:
+      - op: add
+        path: /metadata/annotations
+        value:
           argocd.argoproj.io/sync-wave: "-5"
   # Also include its RBAC in this wave.
   # This regex targets the SA, ClusterRole, and ClusterRoleBinding.
@@ -132,8 +134,9 @@ patches:
       kind: "ServiceAccount|ClusterRole|ClusterRoleBinding"
       name: "nri-bundle-k8s-agents-operator.*" # Targets all operator RBAC
     patch: |
-      metadata:
-        annotations:
+      - op: add
+        path: /metadata/annotations
+        value:
           argocd.argoproj.io/sync-wave: "-5"
 
   # --- WAVE 5: INSTRUMENTATION CRs ---
@@ -142,6 +145,7 @@ patches:
   - target:
       kind: Instrumentation
     patch: |
-      metadata:
-        annotations:
+      - op: add
+        path: /metadata/annotations
+        value:
           argocd.argoproj.io/sync-wave: "5"
