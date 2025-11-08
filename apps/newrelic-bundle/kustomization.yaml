@@ -171,7 +171,8 @@ patches:
         path: /metadata/annotations
         value:
           argocd.argoproj.io/sync-wave: "-5"
-          
+          argocd.argoproj.io/sync-options: "Replace=true"
+
   - target:
       # These must be created *before* the Wave -4 jobs can patch them
       kind: MutatingWebhookConfiguration
