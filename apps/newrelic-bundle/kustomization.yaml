@@ -29,10 +29,9 @@ patches:
         value:
           argocd.argoproj.io/sync-wave: "-5"
   - target:
-      # This is the "catch-all" for all NON-ADMISSION RBAC.
-      # It uses a negative lookahead regex to ignore names ending in "-admission".
+      # This is the new "catch-all" for ALL RBAC resources.
+      # It puts everything in Wave -5 with Replace=true.
       kind: "ServiceAccount|Role|ClusterRole|RoleBinding|ClusterRoleBinding"
-      name: "^newrelic-bundle-(?!.*-admission$).*$"
     patch: |
       - op: add
         path: /metadata/annotations
@@ -41,8 +40,8 @@ patches:
           argocd.argoproj.io/sync-options: "Replace=true"
 
   # --- WAVE -4: RBAC FOR CERT-PATCH JOBS (HOOK REMOVAL) ---
-  # This patch finds all "...-admission" RBAC, removes their hook annotations,
-  # and assigns them to Wave -4.
+  # This patch is *more specific* (it has a 'name' selector),
+  # so it will OVERRIDE the Wave -5 patch for these resources.
   - target:
       kind: "ServiceAccount|Role|ClusterRole|RoleBinding|ClusterRoleBinding"
       name: "newrelic-bundle-.*-admission"
@@ -59,8 +58,6 @@ patches:
         path: /metadata/annotations/helm.sh~1hook-delete-policy
   
   # --- WAVE -3: CERT-PATCH JOBS (HOOK REMOVAL + K8s FIX) ---
-  # This patch finds the "...-admission-create" Jobs, removes their hooks,
-  # assigns them to Wave -3, and applies the K8s 1.25+ fixes.
   - target:
       kind: Job
       name: newrelic-bundle-newrelic-infra-operator-admission-create
@@ -141,9 +138,6 @@ patches:
           argocd.argoproj.io/sync-wave: "5"
 
   # --- CLEANUP: REMOVE THE "PATCH" JOBS ---
-  # We don't need the "...-admission-patch" jobs, as the "...-create"
-  # jobs already generate the certs. This patch defangs their hooks
-  # and also moves them to a late wave just to be safe.
   - target:
       kind: Job
       name: "newrelic-bundle-.*-admission-patch"
