@@ -20,7 +20,7 @@ patches:
         value:
           strategy: None
 
-  # --- WAVE -5: "EMPTY" WEBHOOKS & MAIN OPERATOR RBAC ---
+  # --- WAVE -5: "EMPTY" WEBHOOKS & CATCH-ALL MAIN RBAC ---
   - target:
       kind: "MutatingWebhookConfiguration|ValidatingWebhookConfiguration"
     patch: |
@@ -29,8 +29,10 @@ patches:
         value:
           argocd.argoproj.io/sync-wave: "-5"
   - target:
-      kind: "ServiceAccount|ClusterRole|ClusterRoleBinding"
-      name: "newrelic-bundle-(k8s-agents-operator.*|newrelic-infra-operator|nri-metadata-injection)$"
+      # This is the new "catch-all" for ALL RBAC.
+      # It ensures every RBAC resource gets a wave and Replace=true,
+      # preventing the "already exists" error on retries.
+      kind: "ServiceAccount|Role|ClusterRole|RoleBinding|ClusterRoleBinding"
     patch: |
       - op: add
         path: /metadata/annotations
@@ -39,8 +41,8 @@ patches:
           argocd.argoproj.io/sync-options: "Replace=true"
 
   # --- WAVE -4: RBAC FOR CERT-PATCH JOBS ---
-  # This MUST be in a separate, earlier wave than the jobs themselves
-  # to solve the 'serviceaccount not found' error.
+  # This patch is *more specific*, so Kustomize will apply it
+  # INSTEAD of the Wave -5 patch for these specific resources.
   - target:
       kind: "ServiceAccount|Role|ClusterRole|RoleBinding|ClusterRoleBinding"
       name: "newrelic-bundle-.*-admission"
@@ -52,7 +54,6 @@ patches:
           argocd.argoproj.io/sync-options: "Replace=true"
   
   # --- WAVE -3: CERT-PATCH JOBS (w/ K8s 1.25+ FIX) ---
-  # These jobs run *after* their RBAC is created in Wave -4.
   - target:
       kind: Job
       name: newrelic-bundle-newrelic-infra-operator-admission-create
