@@ -8,38 +8,16 @@ helmCharts:
   - name: nri-bundle
     repo: https://newrelic.github.io/helm-charts
     version: 6.0.21
-    releaseName: nri-bundle # This must match the 'nri-bundle-' prefix below
+    releaseName: nri-bundle
     namespace: newrelic
     valuesInline:
-      # https://github.com/newrelic/helm-charts/blob/master/charts/nri-bundle
+      # ... (your valuesInline section is perfect, no changes) ...
       global:
         cluster: kmullaney-gts-training-k8s-8
         customSecretName: "newrelic-secrets"
         customSecretLicenseKey: "newRelicLicenseKey"
         fargate: true
         privileged: true
-      # https://github.com/newrelic/nri-prometheus/tree/main/charts/nri-prometheus
-      # nri-prometheus:
-      #   enabled: true
-      #   config:
-      #     scrape_endpoints: true
-      #     scrape_services: false
-      #     lowDataMode: true
-      #     insecure_skip_verify: true
-      #     require_scrape_enabled_label_for_nodes: false
-      #     transformations:
-      #     - description: "Add and rename some attributes"
-      #       add_attributes:
-      #       - metric_prefix: ""
-      #         attributes:
-      #           env: "development"
-      #           region: "us-west-2"
-      #       rename_attributes:
-      #       - metric_prefix: ""
-      #         attributes:
-      #           result: "result_new"
-      #           table: "table_new"
-      # https://github.com/newrelic/nri-prometheus/blob/main/charts/nri-prometheus
       newrelic-prometheus-agent:
         enabled: true
         config:
@@ -60,14 +38,11 @@ helmCharts:
               enabled: true
               source_labels:
               - app.kubernetes.io/name
-      # https://github.com/newrelic/k8s-metadata-injection/tree/main/charts/nri-metadata-injection
       nri-metadata-injection:
         enabled: true
-      # https://github.com/newrelic/k8s-agents-operator/tree/main/charts/k8s-agents-operator
       k8s-agents-operator:
         enabled: true
         customSecretName: "newrelic-secrets"
-      # https://github.com/newrelic/newrelic-infra-operator/tree/main/charts/newrelic-infra-operator
       newrelic-infra-operator:
         enabled: true
         tolerations:
@@ -75,17 +50,59 @@ helmCharts:
           operator: "Equal"
           value: "fargate"
           effect: "NoSchedule"
-      # https://github.com/newrelic/nri-kubernetes/tree/main/charts/newrelic-infrastructure
       newrelic-infrastructure:
         enabled: true
         prefixDisplayNameWithCluster: true
         useNodeNameAsDisplayName: true
-      # https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-state-metrics
       kube-state-metrics:
         enabled: true
-      # https://github.com/newrelic/nri-kube-events/tree/main/charts/nri-kube-events
       nri-kube-events:
         enabled: true
-      # https://github.com/newrelic/helm-charts/tree/master/charts/newrelic-logging
       newrelic-logging:
         enabled: true
+
+# These are the *only* patches needed. They solve the x509 error
+# by ensuring the operator is ready before the CRs are applied.
+# All other hooks (...-admission-create jobs) are handled by Helm.
+patches:
+  # --- WAVE -10: CRD ---
+  - target:
+      kind: CustomResourceDefinition
+      name: instrumentations.newrelic.com
+    patch: |
+      - op: add
+        path: /metadata/annotations
+        value:
+          argocd.argoproj.io/sync-wave: "-10" # Corrected typo
+      - op: replace
+        path: /spec/conversion
+        value:
+          strategy: None
+
+  # --- WAVE -5: K8S AGENTS OPERATOR (The webhook server) ---
+  - target:
+      kind: "Deployment|Service"
+      name: "nri-bundle-k8s-agents-operator.*"
+    patch: |
+      - op: add
+        path: /metadata/annotations
+        value:
+          argocd.argoproj.io/sync-wave: "-5" # Corrected typo
+  - target:
+      kind: "ServiceAccount|ClusterRole|ClusterRoleBinding"
+      name: "nri-bundle-k8s-agents-operator.*"
+    patch: |
+      - op: add
+        path: /metadata/annotations
+        value:
+          argocd.argoproj.io/sync-wave: "-5" # Corrected typo
+          argocd.argoproj.io/sync-options: "Replace=true" # Prevents "already exists"
+
+  # --- WAVE 5: INSTRUMENTATION CRs (The webhook clients) ---
+  - target:
+      kind: Instrumentation
+    patch: |
+      - op: add
+        path: /metadata/annotations
+        value:
+          argocd.argoproj.io/sync-wave: "5" # Corrected typo
