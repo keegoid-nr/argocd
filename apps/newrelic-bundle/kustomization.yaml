@@ -178,14 +178,6 @@ patches:
 
   - target:
       # infra-operator job patch
-      # - op: add
-      #   path: /spec/selector
-      #   value:
-      #     matchLabels:
-      #       job-name: nri-bundle-newrelic-infra-operator-admission-create
-      # - op: add
-      #   path: /spec/template/metadata/labels/job-name
-      #   value: nri-bundle-newrelic-infra-operator-admission-create
       kind: Job
       name: nri-bundle-newrelic-infra-operator-admission-create
     patch: |
@@ -194,17 +186,17 @@ patches:
         value:
           argocd.argoproj.io/sync-wave: "-4"
           argocd.argoproj.io/sync-options: "Replace=true"
+      - op: add
+        path: /spec/selector
+        value:
+          matchLabels:
+            job-name: nri-bundle-newrelic-infra-operator-admission-create
+      - op: add
+        path: /spec/template/metadata/labels/job-name
+        value: nri-bundle-newrelic-infra-operator-admission-create
 
   - target:
       # metadata-injection job patch
-      # - op: add
-      #   path: /spec/selector
-      #   value:
-      #     matchLabels:
-      #       job-name: nri-bundle-nri-metadata-injection-admission-create
-      # - op: add
-      #   path: /spec/template/metadata/labels/job-name
-      #   value: nri-bundle-nri-metadata-injection-admission-create
       kind: Job
       name: nri-bundle-nri-metadata-injection-admission-create
     patch: |
@@ -213,6 +205,14 @@ patches:
         value:
           argocd.argoproj.io/sync-wave: "-4"
           argocd.argoproj.io/sync-options: "Replace=true"
+      - op: add
+        path: /spec/selector
+        value:
+          matchLabels:
+            job-name: nri-bundle-nri-metadata-injection-admission-create
+      - op: add
+        path: /spec/template/metadata/labels/job-name
+        value: nri-bundle-nri-metadata-injection-admission-create
 
   # --- WAVE -3: OPERATORS THAT MOUNT CERTS ---
   - target:
