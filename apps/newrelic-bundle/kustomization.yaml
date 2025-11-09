@@ -2,11 +2,102 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
-  - nri-bundle-manifests.yaml
   - instrumentation-crs.yaml
 
+helmCharts:
+  - name: nri-bundle
+    repo: https://newrelic.github.io/helm-charts
+    version: 6.0.21
+    releaseName: nri-bundle
+    namespace: newrelic
+    valuesInline:
+      # https://github.com/newrelic/helm-charts/blob/master/charts/nri-bundle
+      global:
+        cluster: kmullaney-gts-training-k8s-8
+        customSecretName: "newrelic-secrets"
+        customSecretLicenseKey: "newRelicLicenseKey"
+        fargate: true
+        privileged: true
+      # https://github.com/newrelic/nri-prometheus/tree/main/charts/nri-prometheus
+      # nri-prometheus:
+      #   enabled: true
+      #   config:
+      #     scrape_endpoints: true
+      #     scrape_services: false
+      #     lowDataMode: true
+      #     insecure_skip_verify: true
+      #     require_scrape_enabled_label_for_nodes: false
+      #     transformations:
+      #     - description: "Add and rename some attributes"
+      #       add_attributes:
+      #       - metric_prefix: ""
+      #         attributes:
+      #           env: "development"
+      #           region: "us-west-2"
+      #       rename_attributes:
+      #       - metric_prefix: ""
+      #         attributes:
+      #           result: "result_new"
+      #           table: "table_new"
+      # https://github.com/newrelic/nri-prometheus/blob/main/charts/nri-prometheus
+      newrelic-prometheus-agent:
+        enabled: true
+        config:
+          kubernetes:
+            jobs:
+            - job_name_prefix: prometheus-scrape
+              target_discovery:
+                endpoints: true
+                filter:
+                  annotations:
+                    prometheus.io/scrape: true
+                pod: true
+            integrations_filter:
+              app_values:
+              - java-app-service
+              - express-app-service
+              - python-app-service
+              enabled: true
+              source_labels:
+              - app.kubernetes.io/name
+      # https://github.com/newrelic/k8s-metadata-injection/tree/main/charts/nri-metadata-injection
+      nri-metadata-injection:
+        enabled: true
+      # https://github.com/newrelic/k8s-agents-operator/tree/main/charts/k8s-agents-operator
+      k8s-agents-operator:
+        enabled: true
+        customSecretName: "newrelic-secrets"
+      # https://github.com/newrelic/newrelic-infra-operator/tree/main/charts/newrelic-infra-operator
+      newrelic-infra-operator:
+        enabled: true
+        tolerations:
+        - key: "eks.amazonaws.com/compute-type"
+          operator: "Equal"
+          value: "fargate"
+          effect: "NoSchedule"
+      # https://github.com/newrelic/nri-kubernetes/tree/main/charts/newrelic-infrastructure
+      newrelic-infrastructure:
+        enabled: true
+        prefixDisplayNameWithCluster: true
+        useNodeNameAsDisplayName: true
+      # https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-state-metrics
+      kube-state-metrics:
+        enabled: true
+      # https://github.com/newrelic/nri-kube-events/tree/main/charts/nri-kube-events
+      nri-kube-events:
+        enabled: true
+      # https://github.com/newrelic/helm-charts/tree/master/charts/newrelic-logging
+      newrelic-logging:
+        enabled: true
+
 patches:
-  # --- WAVE -10: CRD ---
+# Wave -10: CRD is created.
+# Wave -5: ServiceAccounts, Operator Deployments, Operator Services, and the (empty) MutatingWebhookConfigurations are all created.
+# Wave -4: The Jobs run. They find the webhooks from Wave -5, generate new certs, and patch the caBundle into them.
+# Wave -3/-2: Other k8s-agents-operator components are created.
+# Wave 5: Instrumentation CRs are created.
+
+  # --- WAVE -10: CRDs. This MUST exist first. ---
   - target:
       kind: CustomResourceDefinition
       name: instrumentations.newrelic.com
@@ -14,136 +105,134 @@ patches:
       - op: add
         path: /metadata/annotations
         value:
-          argocd.argopj.io/sync-wave: "-10"
+          argocd.argoj.io/sync-wave: "-10"
+      # This operation replaces the entire 'conversion' block
+      # It stops the K8s API from calling a webhook that isn't ready.
       - op: replace
         path: /spec/conversion
         value:
           strategy: None
 
-  # --- PRE-WAVE: INITIALIZE NULL ANNOTATIONS ---
-  # These patches find the two ServiceAccounts with 'annotations: null'
-  # and replace 'null' with an empty map '{}' so we can add to them.
+  # --- WAVE -5: OPERATOR DEPLOYMENTS & SERVICES ---
   - target:
       kind: ServiceAccount
-      name: "newrelic-bundle-k8s-agents-operator"
-    patch: |
-      - op: add
-        path: /metadata/annotations
-        value: {}
-  - target:
-      kind: ServiceAccount
-      name: "newrelic-bundle-nri-kube-events"
-    patch: |
-      - op: add
-        path: /metadata/annotations
-        value: {}
-
-  # --- WAVE -5: "EMPTY" WEBHOOKS & CATCH-ALL MAIN RBAC ---
-  - target:
-      kind: "MutatingWebhookConfiguration|ValidatingWebhookConfiguration"
     patch: |
       - op: add
         path: /metadata/annotations
         value:
-          argocd.argoproj.io/sync-wave: "-5"
+          argocd.argoj.io/sync-wave: "-5"
+
+  # Ensure the operators are created before their webhooks
   - target:
-      # This "catch-all" for ALL RBAC uses the "add key" syntax
-      # which is resilient to missing 'annotations' keys.
-      kind: "ServiceAccount|Role|ClusterRole|RoleBinding|ClusterRoleBinding"
+      kind: Deployment
+      name: nri-bundle-newrelic-infra-operator
     patch: |
       - op: add
-        path: /metadata/annotations/argocd.argoproj.io~1sync-wave
-        value: "-5"
-      - op: add
-        path: /metadata/annotations/argocd.argoproj.io~1sync-options
-        value: "Replace=true"
+        path: /metadata/annotations
+        value:
+          argocd.argoj.io/sync-wave: "-5"
 
-  # --- WAVE -4: RBAC FOR CERT-PATCH JOBS ---
-  # This more specific patch OVERRIDES the Wave -5 patch.
   - target:
-      kind: "ServiceAccount|Role|ClusterRole|RoleBinding|ClusterRoleBinding"
-      name: "newrelic-bundle-.*-admission"
+      kind: Service
+      name: nri-bundle-newrelic-infra-operator-webhook-svc
     patch: |
       - op: add
-        path: /metadata/annotations/argocd.argoproj.io~1sync-wave
-        value: "-4"
+        path: /metadata/annotations
+        value:
+          argocd.argoj.io/sync-wave: "-5"
 
-  # --- WAVE -3: CERT-PATCH JOBS (w/ K8s 1.25+ FIX) ---
+  # Also add metadata-injection, just in case
+  - target:
+      kind: Deployment
+      name: nri-bundle-nri-metadata-injection
+    patch: |
+      - op: add
+        path: /metadata/annotations
+        value:
+          argocd.argoj.io/sync-wave: "-5"
+
+  - target:
+      kind: Service
+      name: nri-bundle-nri-metadata-injection-webhook-svc
+    patch: |
+      - op: add
+        path: /metadata/annotations
+        value:
+          argocd.argoj.io/sync-wave: "-5"
+
+  # WEBHOOK CONFIGURATIONS
+  # These must be created *before* the Wave -4 jobs can patch them
+  - target:
+      kind: MutatingWebhookConfiguration
+      name: nri-bundle-newrelic-infra-operator
+    patch: |
+      - op: add
+        path: /metadata/annotations
+        value:
+          argocd.argoj.io/sync-wave: "-5"
+
+  - target:
+      kind: MutatingWebhookConfiguration
+      name: nri-bundle-nri-metadata-injection
+    patch: |
+      - op: add
+        path: /metadata/annotations
+        value:
+          argocd.argoj.io/sync-wave: "-5"
+
+  # --- WAVE -4: BATCH JOBS ---
   - target:
       kind: Job
-      name: newrelic-bundle-newrelic-infra-operator-admission-create
+      name: nri-bundle-newrelic-infra-operator-admission-create
     patch: |
       - op: add
         path: /metadata/annotations
         value:
-          argocd.argoproj.io/sync-wave: "-3"
-          argocd.argoproj.io/sync-options: "Replace=true"
-      - op: add
-        path: /spec/selector
-        value: {}
-      - op: add
-        path: /spec/selector/matchLabels
-        value:
-          job-name: newrelic-bundle-newrelic-infra-operator-admission-create
-      - op: add
-        path: /spec/template/metadata/labels/job-name
-        value: newrelic-bundle-newrelic-infra-operator-admission-create
+          argocd.argoj.io/sync-wave: "-4"
+          argocd.argoj.io/sync-options: "Replace=true"
 
   - target:
       kind: Job
-      name: newrelic-bundle-nri-metadata-injection-admission-create
+      name: nri-bundle-nri-metadata-injection-admission-create
     patch: |
       - op: add
         path: /metadata/annotations
         value:
-          argocd.argoproj.io/sync-wave: "-3"
-          argocd.argoproj.io/sync-options: "Replace=true"
-      - op: add
-        path: /spec/selector
-        value: {}
-      - op: add
-        path: /spec/selector/matchLabels
-        value:
-          job-name: newrelic-bundle-nri-metadata-injection-admission-create
-      - op: add
-        path: /spec/template/metadata/labels/job-name
-        value: newrelic-bundle-nri-metadata-injection-admission-create
-        
-  # --- WAVE -2: OPERATORS THAT MOUNT CERTS ---
-  - target:
-      kind: "Deployment|Service"
-      name: "newrelic-bundle-(newrelic-infra-operator|nri-metadata-injection)$"
-    patch: |
-      - op: add
-        path: /metadata/annotations
-        value:
-          argocd.argoproj.io/sync-wave: "-2"
+          argocd.argoj.io/sync-wave: "-4"
+          argocd.argoj.io/sync-options: "Replace=true"
 
-  # --- WAVE -1: K8S AGENTS OPERATOR ---
+  # --- WAVE -3: WEBHOOK SERVICE ---
   - target:
-      kind: "Deployment|Service"
-      name: "newrelic-bundle-k8s-agents-operator.*"
+      kind: Service
+      name: nri-bundle-k8s-agents-operator-webhook-service
     patch: |
       - op: add
         path: /metadata/annotations
         value:
-          argocd.argoproj.io/sync-wave: "-1"
+          argocd.argoj.io/sync-wave: "-3"
 
-  # --- WAVE 5: INSTRUMENTATION CRs ---
+  # --- WAVE -2: K8S AGENTS OPERATOR DEPLOYMENT ---
+  - target:
+      kind: Deployment
+      name: nri-bundle-k8s-agents-operator
+    patch: |
+      - op: add
+        path: /metadata/annotations
+        value:
+          argocd.argoj.io/sync-wave: "-2"
+
+  # --- WAVE 5: CUSTOM RESOURCE WAVES (from instrumentation-crs) ---
+  # This targets all 'Instrumentation' kinds generated by the local chart
   - target:
       kind: Instrumentation
     patch: |
       - op: add
         path: /metadata/annotations
         value:
-          argocd.argoproj.io/sync-wave: "5"
+          argocd.argoj.io/sync-wave: "5"
 
-  # --- CLEANUP: MOVE THE "PATCH" JOBS ---
-  - target:
-      kind: Job
-      name: "newrelic-bundle-.*-admission-patch"
-    patch: |
-      - op: add
-        path: /metadata/annotations
-        value:
-          argocd.argoproj.io/sync-wave: "10"
+# Here is the exact mechanism that will prevent TLS handshake errors after chart upgrades:
+# argocd.argoj.io/sync-wave: "-5": These patches ensure the MutatingWebhookConfiguration resources are created early in the sync.
+# argocd.argoj.io/sync-wave: "-4": The certificate-generation Jobs are told to run in the next wave, after the webhook they need to patch already exists.
+# argocd.argoj.io/sync-options: "Replace=true": This is the key for upgrades. It tells Argo CD to delete the old job and run the new one every time a sync happens. This forces the creation of a new certificate to match the new pod from the upgraded chart.
+# ignoreDifferences:: This tells Argo CD not to panic when it sees the caBundle (which is empty in the chart) get populated by the job. It stops Argo CD from "fixing" the caBundle by removing it.
