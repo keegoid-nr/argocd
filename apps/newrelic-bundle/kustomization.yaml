@@ -131,6 +131,23 @@ helmCharts:
         enabled: true
 
 patches:
+  # --- REMOVE HELM HOOKS ---
+  # This is the most critical patch. The Helm chart uses 'helm.sh/hook'
+  # annotations, which causes Argo CD to run them *before* the sync,
+  # conflicting with our sync waves and causing '... already exists' errors.
+  # This patch removes the hook annotations from all resources,
+  # making them "normal" and allowing them to be fully managed by our
+  # Kustomize sync wave logic.
+  - target:
+      # This selector targets *any* resource with the 'helm.sh/hook' annotation
+      annotationSelector: "helm.sh/hook"
+    patch: |
+      # Use JSON Patch to remove the problematic annotations
+      - op: remove
+        path: /metadata/annotations/helm.sh~1hook
+      - op: remove
+        path: /metadata/annotations/helm.sh~1hook-delete-policy
+
   # --- WAVE -10: CRD ---
   - target:
       kind: CustomResourceDefinition
@@ -177,7 +194,7 @@ patches:
         value:
           argocd.argoproj.io/sync-wave: "-4"
           argocd.argoproj.io/sync-options: "Replace=true"
-  
+
   - target:
       # infra-operator job patch
       kind: Job
