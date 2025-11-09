@@ -29,8 +29,7 @@ patches:
         value:
           argocd.argoproj.io/sync-wave: "-5"
   - target:
-      # This is the new "catch-all" for ALL RBAC resources.
-      # It puts everything in Wave -5 with Replace=true.
+      # This "catch-all" puts ALL RBAC in Wave -5.
       kind: "ServiceAccount|Role|ClusterRole|RoleBinding|ClusterRoleBinding"
     patch: |
       - op: add
@@ -39,39 +38,29 @@ patches:
           argocd.argoproj.io/sync-wave: "-5"
           argocd.argoproj.io/sync-options: "Replace=true"
 
-  # --- WAVE -4: RBAC FOR CERT-PATCH JOBS (HOOK REMOVAL) ---
-  # This patch is *more specific* (it has a 'name' selector),
-  # so it will OVERRIDE the Wave -5 patch for these resources.
+  # --- WAVE -4: RBAC FOR CERT-PATCH JOBS ---
+  # This more specific patch OVERRIDES Wave -5 for these resources.
   - target:
       kind: "ServiceAccount|Role|ClusterRole|RoleBinding|ClusterRoleBinding"
       name: "newrelic-bundle-.*-admission"
     patch: |
       - op: add
-        path: /metadata/annotations/argocd.argoproj.io~1sync-wave
-        value: "-4"
-      - op: add
-        path: /metadata/annotations/argocd.argoproj.io~1sync-options
-        value: "Replace=true"
-      - op: remove
-        path: /metadata/annotations/helm.sh~1hook
-      - op: remove
-        path: /metadata/annotations/helm.sh~1hook-delete-policy
+        path: /metadata/annotations
+        value:
+          argocd.argoproj.io/sync-wave: "-4"
+          argocd.argoproj.io/sync-options: "Replace=true"
   
-  # --- WAVE -3: CERT-PATCH JOBS (HOOK REMOVAL + K8s FIX) ---
+  # --- WAVE -3: CERT-PATCH JOBS (w/ K8s 1.25+ FIX) ---
+  # (No hook removal needed, as they were pre-stripped)
   - target:
       kind: Job
       name: newrelic-bundle-newrelic-infra-operator-admission-create
     patch: |
       - op: add
-        path: /metadata/annotations/argocd.argoproj.io~1sync-wave
-        value: "-3"
-      - op: add
-        path: /metadata/annotations/argocd.argoproj.io~1sync-options
-        value: "Replace=true"
-      - op: remove
-        path: /metadata/annotations/helm.sh~1hook
-      - op: remove
-        path: /metadata/annotations/helm.sh~1hook-delete-policy
+        path: /metadata/annotations
+        value:
+          argocd.argoproj.io/sync-wave: "-3"
+          argocd.argoproj.io/sync-options: "Replace=true"
       - op: add
         path: /spec/selector
         value: {}
@@ -88,15 +77,10 @@ patches:
       name: newrelic-bundle-nri-metadata-injection-admission-create
     patch: |
       - op: add
-        path: /metadata/annotations/argocd.argoproj.io~1sync-wave
-        value: "-3"
-      - op: add
-        path: /metadata/annotations/argocd.argoproj.io~1sync-options
-        value: "Replace=true"
-      - op: remove
-        path: /metadata/annotations/helm.sh~1hook
-      - op: remove
-        path: /metadata/annotations/helm.sh~1hook-delete-policy
+        path: /metadata/annotations
+        value:
+          argocd.argoproj.io/sync-wave: "-3"
+          argocd.argoproj.io/sync-options: "Replace=true"
       - op: add
         path: /spec/selector
         value: {}
@@ -137,15 +121,13 @@ patches:
         value:
           argocd.argoproj.io/sync-wave: "5"
 
-  # --- CLEANUP: REMOVE THE "PATCH" JOBS ---
+  # --- CLEANUP: MOVE THE "PATCH" JOBS ---
+  # We still want to move the "...-patch" jobs out of the way.
   - target:
       kind: Job
       name: "newrelic-bundle-.*-admission-patch"
     patch: |
       - op: add
-        path: /metadata/annotations/argocd.argoproj.io~1sync-wave
-        value: "10"
-      - op: remove
-        path: /metadata/annotations/helm.sh~1hook
-      - op: remove
-        path: /metadata/annotations/helm.sh~1hook-delete-policy
+        path: /metadata/annotations
+        value:
+          argocd.argoproj.io/sync-wave: "10"
