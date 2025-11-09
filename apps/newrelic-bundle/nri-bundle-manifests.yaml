@@ -882,8 +882,7 @@ spec:
                                   (limits.cpu, limits.memory, limits.ephemeral-storage, requests.cpu, requests.memory and requests.ephemeral-storage) are currently supported.
                                 properties:
                                   containerName:
-                                    description: 'Container name: required for volumes,
-                                    optional for env vars'
+                                    description: 'Container name: required for volumes, optional for env vars'
                                     type: string
                                   divisor:
                                     anyOf:
@@ -1297,8 +1296,7 @@ spec:
                                   (limits.cpu, limits.memory, limits.ephemeral-storage, requests.cpu, requests.memory and requests.ephemeral-storage) are currently supported.
                                 properties:
                                   containerName:
-                                    description: 'Container name: required for volumes,
-                                    optional for env vars'
+                                    description: 'Container name: required for volumes, optional for env vars'
                                     type: string
                                   divisor:
                                     anyOf:
@@ -1510,8 +1508,7 @@ spec:
                                   (limits.cpu, limits.memory, limits.ephemeral-storage, requests.cpu, requests.memory and requests.ephemeral-storage) are currently supported.
                                 properties:
                                   containerName:
-                                    description: 'Container name: required for volumes,
-                                    optional for env vars'
+                                    description: 'Container name: required for volumes, optional for env vars'
                                     type: string
                                   divisor:
                                     anyOf:
@@ -1878,8 +1875,7 @@ spec:
                                   (limits.cpu, limits.memory, limits.ephemeral-storage, requests.cpu, requests.memory and requests.ephemeral-storage) are currently supported.
                                 properties:
                                   containerName:
-                                    description: 'Container name: required for volumes,
-                                    optional for env vars'
+                                    description: 'Container name: required for volumes, optional for env vars'
                                     type: string
                                   divisor:
                                     anyOf:
@@ -2421,8 +2417,7 @@ spec:
                                   (limits.cpu, limits.memory, limits.ephemeral-storage, requests.cpu, requests.memory and requests.ephemeral-storage) are currently supported.
                                 properties:
                                   containerName:
-                                    description: 'Container name: required for volumes,
-                                    optional for env vars'
+                                    description: 'Container name: required for volumes, optional for env vars'
                                     type: string
                                   divisor:
                                     anyOf:
