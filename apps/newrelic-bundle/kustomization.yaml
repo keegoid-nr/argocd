@@ -1,8 +1,6 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-# We use the static manifest file, not the helmCharts: feature.
-# This gives us full control and avoids conflicts with Helm's hook logic.
 resources:
   - nri-bundle-manifests.yaml
   - instrumentation-crs.yaml
@@ -24,7 +22,6 @@ patches:
 
   # --- WAVE -5: "EMPTY" WEBHOOKS & MAIN OPERATOR RBAC ---
   - target:
-      # Targets all webhook configurations
       kind: "MutatingWebhookConfiguration|ValidatingWebhookConfiguration"
     patch: |
       - op: add
@@ -32,7 +29,6 @@ patches:
         value:
           argocd.argoproj.io/sync-wave: "-5"
   - target:
-      # Targets RBAC for all main operators
       kind: "ServiceAccount|ClusterRole|ClusterRoleBinding"
       name: "nri-bundle-(k8s-agents-operator.*|newrelic-infra-operator|nri-metadata-injection)$"
     patch: |
@@ -42,9 +38,10 @@ patches:
           argocd.argoproj.io/sync-wave: "-5"
           argocd.argoproj.io/sync-options: "Replace=true"
 
-  # --- WAVE -4: CERT-PATCH JOBS & THEIR RBAC (w/ K8s 1.25+ FIX) ---
+  # --- WAVE -4: RBAC FOR CERT-PATCH JOBS ---
+  # This MUST be in a separate, earlier wave than the jobs themselves
+  # to solve the 'serviceaccount not found' error.
   - target:
-      # Targets all RBAC for the ...-admission jobs
       kind: "ServiceAccount|Role|ClusterRole|RoleBinding|ClusterRoleBinding"
       name: "nri-bundle-.*-admission"
     patch: |
@@ -54,15 +51,16 @@ patches:
           argocd.argoproj.io/sync-wave: "-4"
           argocd.argoproj.io/sync-options: "Replace=true"
   
+  # --- WAVE -3: CERT-PATCH JOBS (w/ K8s 1.25+ FIX) ---
+  # These jobs run *after* their RBAC is created in Wave -4.
   - target:
-      # infra-operator job patch
       kind: Job
       name: newrelic-bundle-newrelic-infra-operator-admission-create
     patch: |
       - op: add
         path: /metadata/annotations
         value:
-          argocd.argoproj.io/sync-wave: "-4"
+          argocd.argoproj.io/sync-wave: "-3"
           argocd.argoproj.io/sync-options: "Replace=true"
       - op: add
         path: /spec/selector
@@ -76,14 +74,13 @@ patches:
         value: newrelic-bundle-newrelic-infra-operator-admission-create
 
   - target:
-      # metadata-injection job patch
       kind: Job
       name: newrelic-bundle-nri-metadata-injection-admission-create
     patch: |
       - op: add
         path: /metadata/annotations
         value:
-          argocd.argoproj.io/sync-wave: "-4"
+          argocd.argoproj.io/sync-wave: "-3"
           argocd.argoproj.io/sync-options: "Replace=true"
       - op: add
         path: /spec/selector
@@ -96,18 +93,17 @@ patches:
         path: /spec/template/metadata/labels/job-name
         value: newrelic-bundle-nri-metadata-injection-admission-create
 
-  # --- WAVE -3: OPERATORS THAT MOUNT CERTS ---
+  # --- WAVE -2: OPERATORS THAT MOUNT CERTS ---
   - target:
-      # Targets Deployments/Services for infra-operator and metadata-injection
       kind: "Deployment|Service"
       name: "nri-bundle-(newrelic-infra-operator|nri-metadata-injection)$"
     patch: |
       - op: add
         path: /metadata/annotations
         value:
-          argocd.argoproj.io/sync-wave: "-3"
+          argocd.argoproj.io/sync-wave: "-2"
 
-  # --- WAVE -2: K8S AGENTS OPERATOR ---
+  # --- WAVE -1: K8S AGENTS OPERATOR ---
   - target:
       kind: "Deployment|Service"
       name: "nri-bundle-k8s-agents-operator.*"
@@ -115,7 +111,7 @@ patches:
       - op: add
         path: /metadata/annotations
         value:
-          argocd.argoproj.io/sync-wave: "-2"
+          argocd.argoproj.io/sync-wave: "-1"
 
   # --- WAVE 5: INSTRUMENTATION CRs ---
   - target:
@@ -127,8 +123,6 @@ patches:
           argocd.argoproj.io/sync-wave: "5"
 
   # --- FINAL FIX: REMOVE ALL HELM HOOKS ---
-  # This patch finds every resource that has a 'helm.sh/hook' annotation
-  # and removes it, giving 100% control to our sync waves.
   - target:
       annotationSelector: "helm.sh/hook"
     patch: |
