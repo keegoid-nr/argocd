@@ -156,13 +156,15 @@ patches:
           argocd.argoproj.io/sync-wave: "-5"
   - target:
       # Targets RBAC for k8s-agents-operator and newrelic-infra-operator
+      # This now includes the "Replace=true" option to survive retries
       kind: "ServiceAccount|ClusterRole|ClusterRoleBinding"
-      name: "nri-bundle-(k8s-agents-operator.*|newrelic-infra-operator)$"
+      name: "nri-bundle-(k8s-agents-operator.*|newrelic-infra-operator|nri-metadata-injection)$"
     patch: |
       - op: add
         path: /metadata/annotations
         value:
           argocd.argoproj.io/sync-wave: "-5"
+          argocd.argoproj.io/sync-options: "Replace=true"
 
   # --- WAVE -4: CERT-PATCH JOBS & THEIR RBAC (w/ K8s 1.25+ FIX) ---
   - target:
@@ -175,7 +177,7 @@ patches:
         value:
           argocd.argoproj.io/sync-wave: "-4"
           argocd.argoproj.io/sync-options: "Replace=true"
-
+  
   - target:
       # infra-operator job patch
       kind: Job
@@ -227,16 +229,7 @@ patches:
   # --- WAVE -3: OPERATORS THAT MOUNT CERTS ---
   - target:
       # Targets Deployments for infra-operator and metadata-injection
-      kind: Deployment
-      name: "nri-bundle-(newrelic-infra-operator|nri-metadata-injection)$"
-    patch: |
-      - op: add
-        path: /metadata/annotations
-        value:
-          argocd.argoproj.io/sync-wave: "-3"
-  - target:
-      # Targets Services for infra-operator and metadata-injection
-      kind: Service
+      kind: "Deployment|Service"
       name: "nri-bundle-(newrelic-infra-operator|nri-metadata-injection)$"
     patch: |
       - op: add
@@ -246,16 +239,8 @@ patches:
 
   # --- WAVE -2: K8S AGENTS OPERATOR ---
   - target:
-      kind: Deployment
-      name: nri-bundle-k8s-agents-operator
-    patch: |
-      - op: add
-        path: /metadata/annotations
-        value:
-          argocd.argoproj.io/sync-wave: "-2"
-  - target:
-      kind: Service
-      name: nri-bundle-k8s-agents-operator-webhook-service
+      kind: "Deployment|Service"
+      name: "nri-bundle-k8s-agents-operator.*"
     patch: |
       - op: add
         path: /metadata/annotations
