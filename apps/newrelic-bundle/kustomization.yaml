@@ -14,11 +14,29 @@ patches:
       - op: add
         path: /metadata/annotations
         value:
-          argocd.argoproj.io/sync-wave: "-10"
+          argocd.argopj.io/sync-wave: "-10"
       - op: replace
         path: /spec/conversion
         value:
           strategy: None
+
+  # --- PRE-WAVE: INITIALIZE NULL ANNOTATIONS ---
+  # These patches find the two ServiceAccounts with 'annotations: null'
+  # and replace 'null' with an empty map '{}' so we can add to them.
+  - target:
+      kind: ServiceAccount
+      name: "newrelic-bundle-k8s-agents-operator"
+    patch: |
+      - op: add
+        path: /metadata/annotations
+        value: {}
+  - target:
+      kind: ServiceAccount
+      name: "newrelic-bundle-nri-kube-events"
+    patch: |
+      - op: add
+        path: /metadata/annotations
+        value: {}
 
   # --- WAVE -5: "EMPTY" WEBHOOKS & CATCH-ALL MAIN RBAC ---
   - target:
@@ -29,29 +47,28 @@ patches:
         value:
           argocd.argoproj.io/sync-wave: "-5"
   - target:
-      # This "catch-all" puts ALL RBAC in Wave -5.
+      # This "catch-all" for ALL RBAC uses the "add key" syntax
+      # which is resilient to missing 'annotations' keys.
       kind: "ServiceAccount|Role|ClusterRole|RoleBinding|ClusterRoleBinding"
     patch: |
       - op: add
-        path: /metadata/annotations
-        value:
-          argocd.argoproj.io/sync-wave: "-5"
-          argocd.argoproj.io/sync-options: "Replace=true"
+        path: /metadata/annotations/argocd.argoproj.io~1sync-wave
+        value: "-5"
+      - op: add
+        path: /metadata/annotations/argocd.argoproj.io~1sync-options
+        value: "Replace=true"
 
   # --- WAVE -4: RBAC FOR CERT-PATCH JOBS ---
-  # This more specific patch OVERRIDES Wave -5 for these resources.
+  # This more specific patch OVERRIDES the Wave -5 patch.
   - target:
       kind: "ServiceAccount|Role|ClusterRole|RoleBinding|ClusterRoleBinding"
       name: "newrelic-bundle-.*-admission"
     patch: |
       - op: add
-        path: /metadata/annotations
-        value:
-          argocd.argoproj.io/sync-wave: "-4"
-          argocd.argoproj.io/sync-options: "Replace=true"
-  
+        path: /metadata/annotations/argocd.argoproj.io~1sync-wave
+        value: "-4"
+
   # --- WAVE -3: CERT-PATCH JOBS (w/ K8s 1.25+ FIX) ---
-  # (No hook removal needed, as they were pre-stripped)
   - target:
       kind: Job
       name: newrelic-bundle-newrelic-infra-operator-admission-create
@@ -122,7 +139,6 @@ patches:
           argocd.argoproj.io/sync-wave: "5"
 
   # --- CLEANUP: MOVE THE "PATCH" JOBS ---
-  # We still want to move the "...-patch" jobs out of the way.
   - target:
       kind: Job
       name: "newrelic-bundle-.*-admission-patch"
