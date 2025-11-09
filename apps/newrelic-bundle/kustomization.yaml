@@ -29,10 +29,10 @@ patches:
         value:
           argocd.argoproj.io/sync-wave: "-5"
   - target:
-      # This is the new "catch-all" for ALL RBAC.
-      # It ensures every RBAC resource gets a wave and Replace=true,
-      # preventing the "already exists" error on retries.
+      # This is the "catch-all" for all NON-ADMISSION RBAC.
+      # It uses a negative lookahead regex to ignore names ending in "-admission".
       kind: "ServiceAccount|Role|ClusterRole|RoleBinding|ClusterRoleBinding"
+      name: "^newrelic-bundle-(?!.*-admission$).*$"
     patch: |
       - op: add
         path: /metadata/annotations
@@ -40,29 +40,41 @@ patches:
           argocd.argoproj.io/sync-wave: "-5"
           argocd.argoproj.io/sync-options: "Replace=true"
 
-  # --- WAVE -4: RBAC FOR CERT-PATCH JOBS ---
-  # This patch is *more specific*, so Kustomize will apply it
-  # INSTEAD of the Wave -5 patch for these specific resources.
+  # --- WAVE -4: RBAC FOR CERT-PATCH JOBS (HOOK REMOVAL) ---
+  # This patch finds all "...-admission" RBAC, removes their hook annotations,
+  # and assigns them to Wave -4.
   - target:
       kind: "ServiceAccount|Role|ClusterRole|RoleBinding|ClusterRoleBinding"
       name: "newrelic-bundle-.*-admission"
     patch: |
       - op: add
-        path: /metadata/annotations
-        value:
-          argocd.argoproj.io/sync-wave: "-4"
-          argocd.argoproj.io/sync-options: "Replace=true"
+        path: /metadata/annotations/argocd.argoproj.io~1sync-wave
+        value: "-4"
+      - op: add
+        path: /metadata/annotations/argocd.argoproj.io~1sync-options
+        value: "Replace=true"
+      - op: remove
+        path: /metadata/annotations/helm.sh~1hook
+      - op: remove
+        path: /metadata/annotations/helm.sh~1hook-delete-policy
   
-  # --- WAVE -3: CERT-PATCH JOBS (w/ K8s 1.25+ FIX) ---
+  # --- WAVE -3: CERT-PATCH JOBS (HOOK REMOVAL + K8s FIX) ---
+  # This patch finds the "...-admission-create" Jobs, removes their hooks,
+  # assigns them to Wave -3, and applies the K8s 1.25+ fixes.
   - target:
       kind: Job
       name: newrelic-bundle-newrelic-infra-operator-admission-create
     patch: |
       - op: add
-        path: /metadata/annotations
-        value:
-          argocd.argoproj.io/sync-wave: "-3"
-          argocd.argoproj.io/sync-options: "Replace=true"
+        path: /metadata/annotations/argocd.argoproj.io~1sync-wave
+        value: "-3"
+      - op: add
+        path: /metadata/annotations/argocd.argoproj.io~1sync-options
+        value: "Replace=true"
+      - op: remove
+        path: /metadata/annotations/helm.sh~1hook
+      - op: remove
+        path: /metadata/annotations/helm.sh~1hook-delete-policy
       - op: add
         path: /spec/selector
         value: {}
@@ -79,10 +91,15 @@ patches:
       name: newrelic-bundle-nri-metadata-injection-admission-create
     patch: |
       - op: add
-        path: /metadata/annotations
-        value:
-          argocd.argoproj.io/sync-wave: "-3"
-          argocd.argoproj.io/sync-options: "Replace=true"
+        path: /metadata/annotations/argocd.argoproj.io~1sync-wave
+        value: "-3"
+      - op: add
+        path: /metadata/annotations/argocd.argoproj.io~1sync-options
+        value: "Replace=true"
+      - op: remove
+        path: /metadata/annotations/helm.sh~1hook
+      - op: remove
+        path: /metadata/annotations/helm.sh~1hook-delete-policy
       - op: add
         path: /spec/selector
         value: {}
@@ -93,7 +110,7 @@ patches:
       - op: add
         path: /spec/template/metadata/labels/job-name
         value: newrelic-bundle-nri-metadata-injection-admission-create
-
+        
   # --- WAVE -2: OPERATORS THAT MOUNT CERTS ---
   - target:
       kind: "Deployment|Service"
@@ -123,10 +140,17 @@ patches:
         value:
           argocd.argoproj.io/sync-wave: "5"
 
-  # --- FINAL FIX: REMOVE ALL HELM HOOKS ---
+  # --- CLEANUP: REMOVE THE "PATCH" JOBS ---
+  # We don't need the "...-admission-patch" jobs, as the "...-create"
+  # jobs already generate the certs. This patch defangs their hooks
+  # and also moves them to a late wave just to be safe.
   - target:
-      annotationSelector: "helm.sh/hook"
+      kind: Job
+      name: "newrelic-bundle-.*-admission-patch"
     patch: |
+      - op: add
+        path: /metadata/annotations/argocd.argoproj.io~1sync-wave
+        value: "10"
       - op: remove
         path: /metadata/annotations/helm.sh~1hook
       - op: remove
