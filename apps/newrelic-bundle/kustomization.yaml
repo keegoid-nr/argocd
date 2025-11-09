@@ -186,11 +186,16 @@ patches:
         value:
           argocd.argoproj.io/sync-wave: "-4"
           argocd.argoproj.io/sync-options: "Replace=true"
+      # FIX (Step 1): Add an empty 'selector' object
       - op: add
         path: /spec/selector
+        value: {}
+      # FIX (Step 2): Add 'matchLabels' to the new 'selector'
+      - op: add
+        path: /spec/selector/matchLabels
         value:
-          matchLabels:
-            job-name: nri-bundle-newrelic-infra-operator-admission-create
+          job-name: nri-bundle-newrelic-infra-operator-admission-create
+      # FIX (Step 3): Add the matching label to the pod template
       - op: add
         path: /spec/template/metadata/labels/job-name
         value: nri-bundle-newrelic-infra-operator-admission-create
@@ -205,11 +210,16 @@ patches:
         value:
           argocd.argoproj.io/sync-wave: "-4"
           argocd.argoproj.io/sync-options: "Replace=true"
+      # FIX (Step 1): Add an empty 'selector' object
       - op: add
         path: /spec/selector
+        value: {}
+      # FIX (Step 2): Add 'matchLabels' to the new 'selector'
+      - op: add
+        path: /spec/selector/matchLabels
         value:
-          matchLabels:
-            job-name: nri-bundle-nri-metadata-injection-admission-create
+          job-name: nri-bundle-nri-metadata-injection-admission-create
+      # FIX (Step 3): Add the matching label to the pod template
       - op: add
         path: /spec/template/metadata/labels/job-name
         value: nri-bundle-nri-metadata-injection-admission-create
