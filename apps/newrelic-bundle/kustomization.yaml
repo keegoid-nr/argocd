@@ -30,7 +30,7 @@ patches:
           argocd.argoproj.io/sync-wave: "-5"
   - target:
       kind: "ServiceAccount|ClusterRole|ClusterRoleBinding"
-      name: "nri-bundle-(k8s-agents-operator.*|newrelic-infra-operator|nri-metadata-injection)$"
+      name: "newrelic-bundle-(k8s-agents-operator.*|newrelic-infra-operator|nri-metadata-injection)$"
     patch: |
       - op: add
         path: /metadata/annotations
@@ -43,7 +43,7 @@ patches:
   # to solve the 'serviceaccount not found' error.
   - target:
       kind: "ServiceAccount|Role|ClusterRole|RoleBinding|ClusterRoleBinding"
-      name: "nri-bundle-.*-admission"
+      name: "newrelic-bundle-.*-admission"
     patch: |
       - op: add
         path: /metadata/annotations
@@ -96,7 +96,7 @@ patches:
   # --- WAVE -2: OPERATORS THAT MOUNT CERTS ---
   - target:
       kind: "Deployment|Service"
-      name: "nri-bundle-(newrelic-infra-operator|nri-metadata-injection)$"
+      name: "newrelic-bundle-(newrelic-infra-operator|nri-metadata-injection)$"
     patch: |
       - op: add
         path: /metadata/annotations
@@ -106,7 +106,7 @@ patches:
   # --- WAVE -1: K8S AGENTS OPERATOR ---
   - target:
       kind: "Deployment|Service"
-      name: "nri-bundle-k8s-agents-operator.*"
+      name: "newrelic-bundle-k8s-agents-operator.*"
     patch: |
       - op: add
         path: /metadata/annotations
