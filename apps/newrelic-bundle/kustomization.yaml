@@ -1,153 +1,13 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-
-# --- Argo CD Sync Wave Strategy ---
-#
-# The patches below solve a "chicken-and-egg" timing problem with
-# the 'k8s-agents-operator' conversion webhook.
-#
-# The Problem:
-# Without waves, Argo CD tries to apply all resources at once.
-# The 'Instrumentation' custom resources (CRs) are applied, but the
-# Kubernetes API server *immediately* tries to call the conversion
-# webhook for them. However, the 'k8s-agents-operator' pod that
-# serves that webhook isn't running or ready yet.
-# This results in a "tls: x509: certificate signed by unknown authority"
-# error, causing the sync to fail repeatedly until the operator pod
-# finally starts.
-#
-# The Solution:
-# We use sync waves to enforce a specific order of operations:
-#
-# 1.  **Wave -10 (CRD):**
-#     - **What:** The `instrumentations.newrelic.com` CustomResourceDefinition.
-#     - **Why:** The cluster must know what an 'Instrumentation' resource is
-#       before we can apply the operator or the CRs.
-#     - **Note:** We also patch `spec/conversion` to `strategy: None`. This is
-#       critical to prevent the API server from calling the webhook when
-#       the CRD *itself* is applied. (The Argo CD Application's
-#       'ignoreDifferences' for this path is also required).
-#
-# 2.  **Wave -5 (Operator):**
-#     - **What:** The `k8s-agents-operator` Deployment, its Service, and its RBAC.
-#     - **Why:** This is the webhook server. This wave ensures the operator
-#       is fully deployed and its pod is running *before* any
-#       resources that need to call its webhook are applied.
-#
-# 3.  **Wave 5 (CRs):**
-#     - **What:** The `Instrumentation` custom resources from `instrumentation-crs.yaml`.
-#     - **Why:** By applying these last, we guarantee the operator in Wave -5
-#       is healthy and ready to serve the webhook requests, preventing
-#       the x509 error and ensuring a clean, immediate sync.
-
+# We use the static manifest file, not the helmCharts: feature.
+# This gives us full control and avoids conflicts with Helm's hook logic.
 resources:
+  - nri-bundle-manifests.yaml
   - instrumentation-crs.yaml
 
-helmCharts:
-  - name: nri-bundle
-    repo: https://newrelic.github.io/helm-charts
-    version: 6.0.21
-    releaseName: nri-bundle # This must match the 'nri-bundle-' prefix below
-    namespace: newrelic
-    valuesInline:
-      # https://github.com/newrelic/helm-charts/blob/master/charts/nri-bundle
-      global:
-        cluster: kmullaney-gts-training-k8s-8
-        customSecretName: "newrelic-secrets"
-        customSecretLicenseKey: "newRelicLicenseKey"
-        fargate: true
-        privileged: true
-      # https://github.com/newrelic/nri-prometheus/tree/main/charts/nri-prometheus
-      # nri-prometheus:
-      #   enabled: true
-      #   config:
-      #     scrape_endpoints: true
-      #     scrape_services: false
-      #     lowDataMode: true
-      #     insecure_skip_verify: true
-      #     require_scrape_enabled_label_for_nodes: false
-      #     transformations:
-      #     - description: "Add and rename some attributes"
-      #       add_attributes:
-      #       - metric_prefix: ""
-      #         attributes:
-      #           env: "development"
-      #           region: "us-west-2"
-      #       rename_attributes:
-      #       - metric_prefix: ""
-      #         attributes:
-      #           result: "result_new"
-      #           table: "table_new"
-      # https://github.com/newrelic/nri-prometheus/blob/main/charts/nri-prometheus
-      newrelic-prometheus-agent:
-        enabled: true
-        config:
-          kubernetes:
-            jobs:
-            - job_name_prefix: prometheus-scrape
-              target_discovery:
-                endpoints: true
-                filter:
-                  annotations:
-                    prometheus.io/scrape: true
-                pod: true
-            integrations_filter:
-              app_values:
-              - java-app-service
-              - express-app-service
-              - python-app-service
-              enabled: true
-              source_labels:
-              - app.kubernetes.io/name
-      # https://github.com/newrelic/k8s-metadata-injection/tree/main/charts/nri-metadata-injection
-      nri-metadata-injection:
-        enabled: true
-      # https://github.com/newrelic/k8s-agents-operator/tree/main/charts/k8s-agents-operator
-      k8s-agents-operator:
-        enabled: true
-        customSecretName: "newrelic-secrets"
-      # https://github.com/newrelic/newrelic-infra-operator/tree/main/charts/newrelic-infra-operator
-      newrelic-infra-operator:
-        enabled: true
-        tolerations:
-        - key: "eks.amazonaws.com/compute-type"
-          operator: "Equal"
-          value: "fargate"
-          effect: "NoSchedule"
-      # https://github.com/newrelic/nri-kubernetes/tree/main/charts/newrelic-infrastructure
-      newrelic-infrastructure:
-        enabled: true
-        prefixDisplayNameWithCluster: true
-        useNodeNameAsDisplayName: true
-      # https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-state-metrics
-      kube-state-metrics:
-        enabled: true
-      # https://github.com/newrelic/nri-kube-events/tree/main/charts/nri-kube-events
-      nri-kube-events:
-        enabled: true
-      # https://github.com/newrelic/helm-charts/tree/master/charts/newrelic-logging
-      newrelic-logging:
-        enabled: true
-
 patches:
-  # --- REMOVE HELM HOOKS ---
-  # This is the most critical patch. The Helm chart uses 'helm.sh/hook'
-  # annotations, which causes Argo CD to run them *before* the sync,
-  # conflicting with our sync waves and causing '... already exists' errors.
-  # This patch removes the hook annotations from all resources,
-  # making them "normal" and allowing them to be fully managed by our
-  # Kustomize sync wave logic.
-  - target:
-      # This selector targets *any* resource with the 'helm.sh/hook' annotation
-      annotationSelector: "helm.sh/hook"
-    patch: |
-      # Use JSON Patch to remove the problematic annotations
-      - op: remove
-        path: /metadata/annotations/helm.sh~1hook
-      - op: remove
-        path: /metadata/annotations/helm.sh~1hook-delete-policy
-
   # --- WAVE -10: CRD ---
   - target:
       kind: CustomResourceDefinition
@@ -172,8 +32,7 @@ patches:
         value:
           argocd.argoproj.io/sync-wave: "-5"
   - target:
-      # Targets RBAC for k8s-agents-operator and newrelic-infra-operator
-      # This now includes the "Replace=true" option to survive retries
+      # Targets RBAC for all main operators
       kind: "ServiceAccount|ClusterRole|ClusterRoleBinding"
       name: "nri-bundle-(k8s-agents-operator.*|newrelic-infra-operator|nri-metadata-injection)$"
     patch: |
@@ -194,58 +53,52 @@ patches:
         value:
           argocd.argoproj.io/sync-wave: "-4"
           argocd.argoproj.io/sync-options: "Replace=true"
-
+  
   - target:
       # infra-operator job patch
       kind: Job
-      name: nri-bundle-newrelic-infra-operator-admission-create
+      name: newrelic-bundle-newrelic-infra-operator-admission-create
     patch: |
       - op: add
         path: /metadata/annotations
         value:
           argocd.argoproj.io/sync-wave: "-4"
           argocd.argoproj.io/sync-options: "Replace=true"
-      # FIX (Step 1): Add an empty 'selector' object
       - op: add
         path: /spec/selector
         value: {}
-      # FIX (Step 2): Add 'matchLabels' to the new 'selector'
       - op: add
         path: /spec/selector/matchLabels
         value:
-          job-name: nri-bundle-newrelic-infra-operator-admission-create
-      # FIX (Step 3): Add the matching label to the pod template
+          job-name: newrelic-bundle-newrelic-infra-operator-admission-create
       - op: add
         path: /spec/template/metadata/labels/job-name
-        value: nri-bundle-newrelic-infra-operator-admission-create
+        value: newrelic-bundle-newrelic-infra-operator-admission-create
 
   - target:
       # metadata-injection job patch
       kind: Job
-      name: nri-bundle-nri-metadata-injection-admission-create
+      name: newrelic-bundle-nri-metadata-injection-admission-create
     patch: |
       - op: add
         path: /metadata/annotations
         value:
           argocd.argoproj.io/sync-wave: "-4"
           argocd.argoproj.io/sync-options: "Replace=true"
-      # FIX (Step 1): Add an empty 'selector' object
       - op: add
         path: /spec/selector
         value: {}
-      # FIX (Step 2): Add 'matchLabels' to the new 'selector'
       - op: add
         path: /spec/selector/matchLabels
         value:
-          job-name: nri-bundle-nri-metadata-injection-admission-create
-      # FIX (Step 3): Add the matching label to the pod template
+          job-name: newrelic-bundle-nri-metadata-injection-admission-create
       - op: add
         path: /spec/template/metadata/labels/job-name
-        value: nri-bundle-nri-metadata-injection-admission-create
+        value: newrelic-bundle-nri-metadata-injection-admission-create
 
   # --- WAVE -3: OPERATORS THAT MOUNT CERTS ---
   - target:
-      # Targets Deployments for infra-operator and metadata-injection
+      # Targets Deployments/Services for infra-operator and metadata-injection
       kind: "Deployment|Service"
       name: "nri-bundle-(newrelic-infra-operator|nri-metadata-injection)$"
     patch: |
@@ -272,3 +125,14 @@ patches:
         path: /metadata/annotations
         value:
           argocd.argoproj.io/sync-wave: "5"
+
+  # --- FINAL FIX: REMOVE ALL HELM HOOKS ---
+  # This patch finds every resource that has a 'helm.sh/hook' annotation
+  # and removes it, giving 100% control to our sync waves.
+  - target:
+      annotationSelector: "helm.sh/hook"
+    patch: |
+      - op: remove
+        path: /metadata/annotations/helm.sh~1hook
+      - op: remove
+        path: /metadata/annotations/helm.sh~1hook-delete-policy
